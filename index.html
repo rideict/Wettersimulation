@@ -1,0 +1,1004 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Wettersimulator</title>
+<!--
+  Eigenständige Datei: kein externes Skript, keine Bibliothek, keine Schrift.
+  Einbetten per iframe:  <iframe src="wettersimulator.html" style="width:100%;height:1500px;border:0" title="Wettersimulator"></iframe>
+  Oder den Inhalt von <style>, <main> und <script> direkt in eine Seite kopieren.
+-->
+<style>
+:root{--bg:#fff;--fg:#1f2328;--mut:#5b6470;--card:#f1f3f5;--bd:#d3d7dc;--acc:#185fa5;--accbg:#e6f1fb;--dng:#a32d2d;--dngbg:#fcebeb;--ok:#3b6d11}
+@media (prefers-color-scheme:dark){:root{--bg:#16181c;--fg:#e8eaed;--mut:#9aa3ad;--card:#22262b;--bd:#363b42;--acc:#85b7eb;--accbg:#0c447c;--dng:#f7c1c1;--dngbg:#791f1f;--ok:#97c459}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:1000px;margin:0 auto;padding:20px 16px 40px}
+h1{font-size:24px;font-weight:600;margin:0 0 4px}
+.lead{color:var(--mut);font-size:14px;margin:0 0 14px}
+h2{font-size:15px;font-weight:600;margin:0 0 8px}
+.bar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+button,select{font:inherit;font-size:13px;color:var(--fg);background:transparent;border:1px solid var(--bd);border-radius:8px;padding:5px 11px;cursor:pointer}
+button:hover,select:hover{background:var(--card)}
+button.on{background:var(--accbg);color:var(--acc);border-color:var(--acc)}
+input[type=search]{font:inherit;font-size:13px;color:var(--fg);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:5px 10px;min-width:190px;flex:1 1 190px}
+canvas{width:100%;height:auto;display:block;border-radius:12px}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:18px;margin:14px 0}
+.row{display:grid;grid-template-columns:140px 1fr 124px;align-items:center;gap:10px;margin:0 0 5px}
+.row label{font-size:13px;color:var(--mut)}
+.row span{font-size:13px;font-weight:600;text-align:right}
+.sel{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 0;font-size:13px;color:var(--mut);align-items:center}
+.metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin:0 0 12px}
+.m{background:var(--card);border-radius:8px;padding:8px 12px}
+.m small{display:block;font-size:12px;color:var(--mut)}
+.m b{font-size:17px;font-weight:600}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 12px}
+.chip{font-size:12px;padding:3px 10px;border-radius:8px;background:var(--accbg);color:var(--acc)}
+.chip.w{background:var(--dngbg);color:var(--dng)}
+.card{background:var(--card);border-radius:12px;padding:12px 14px}
+.card p{margin:0;font-size:14px}
+.cap{font-size:12px;color:var(--mut);margin:6px 0 0}
+.tg{font-size:13px;display:flex;align-items:center;gap:6px;color:var(--mut);cursor:pointer}
+.why{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:10px;margin:0 0 6px}
+.why h3{font-size:14px;font-weight:600;margin:0 0 4px}
+.why .card p{font-size:14px;margin:0}
+.sec{margin:18px 0 0}
+details{border:1px solid var(--bd);border-radius:8px;padding:6px 12px;margin:0 0 6px;font-size:14px}
+summary{cursor:pointer;font-weight:600}
+details p{margin:6px 0 4px;color:var(--mut)}
+.foot{font-size:12px;color:var(--mut);margin:14px 0 0}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+</style>
+</head>
+<body>
+<main>
+<h1>Wettersimulator</h1>
+<p class="lead">Stelle Luftdruck, Sonne, Feuchte, Temperatur, Tageszeit, Jahreszeit, Standort und Front ein. Szene, Höhenprofil und Wetterbericht passen sich live an. Vereinfachtes Modell, keine Vorhersage.</p>
+
+<div class="bar" id="presets" role="group" aria-label="Voreinstellungen">
+<button data-p="998,100,82,32,15,190,0,0">Sommergewitter</button>
+<button data-p="1008,100,84,17,18,200,0,0">Regenbogen</button>
+<button data-p="1026,20,99,7,7,300,0,0">Herbstnebel</button>
+<button data-p="1008,30,92,-3,11,20,0,0">Schneefall</button>
+<button data-p="1032,85,35,24,13,170,0,0">Hochdruck, klar</button>
+<button data-p="965,40,88,8,15,300,1,0">Sturmtief an der Küste</button>
+<button data-p="995,95,85,34,15,185,0,0">Hagelunwetter</button>
+<button data-p="1030,5,60,-8,3,15,0,0">Frostnacht</button>
+<button data-p="1008,60,65,20,16,150,0,1">Kaltfront</button>
+<button data-p="1000,40,65,6,12,60,0,2">Warmfront</button>
+<button data-p="1004,50,85,-2,10,40,2,0">Gebirge, Schnee</button>
+<button data-p="1018,100,50,36,14,200,0,0">Hitzewelle</button>
+<button data-p="1030,40,88,1,12,340,0,0">Hochnebel im Winter</button>
+<button data-p="1028,0,75,-1,5,290,0,0">Strahlungsnacht</button>
+</div>
+
+<section class="card" style="margin:0 0 12px">
+<h2>Aktuelles Wetter von einem Ort</h2>
+<div class="bar" style="margin:0">
+<input id="q" type="search" placeholder="Ort, z. B. Lüneburg" aria-label="Ort suchen">
+<button id="goSearch">Suchen</button>
+<button id="goGeo">Mein Standort</button>
+<button id="goReload">Neu laden</button>
+<select id="pl" style="display:none" aria-label="Treffer"></select>
+</div>
+<p class="cap" id="liveStatus">Ort eingeben, dann übernehmen die Regler und die Szene die aktuellen Messwerte. Wer danach einen Regler bewegt, löst sich von den Live-Werten und kann frei weiterspielen.</p>
+</section>
+<canvas id="c" width="680" height="340" role="img" aria-label="Animierte Wetterszene"></canvas>
+
+<div class="bar" style="margin-top:10px">
+<button id="playDay">Tag abspielen</button>
+<button id="playYear">Jahr abspielen</button>
+<span style="font-size:13px;color:var(--mut);align-self:center">Zeitraffer</span>
+</div>
+
+<div class="grid">
+<section>
+<h2>Regler</h2>
+<div class="row"><label for="P">Luftdruck</label><input type="range" id="P" min="950" max="1050" step="1" value="1013"><span id="Po"></span></div>
+<div class="row"><label for="S">Sonneneinstrahlung</label><input type="range" id="S" min="0" max="100" step="1" value="70"><span id="So"></span></div>
+<div class="row"><label for="RH">Relative Feuchte</label><input type="range" id="RH" min="5" max="100" step="1" value="60"><span id="RHo"></span></div>
+<div class="row"><label for="T">Temperatur</label><input type="range" id="T" min="-30" max="45" step="0.5" value="15"><span id="To"></span></div>
+<div class="row"><label for="H">Tageszeit</label><input type="range" id="H" min="0" max="24" step="0.05" value="13"><span id="Ho"></span></div>
+<div class="row"><label for="D">Jahreszeit (Datum)</label><input type="range" id="D" min="1" max="365" step="1" value="172"><span id="Do"></span></div>
+<div class="sel">
+<label>Standort <select id="L"><option value="0">Flachland</option><option value="1">Küste</option><option value="2">Gebirge</option></select></label>
+<label>Inversion <select id="V"><option value="0">automatisch</option><option value="1">erzwingen</option><option value="2">aus</option></select></label>
+<label>Front <select id="F"><option value="0">keine</option><option value="1">Kaltfront</option><option value="2">Warmfront</option></select></label>
+</div>
+<p class="cap">Küste: mehr Feuchte und Wind, Meer im Bild. Gebirge: mehr Wind, Stauniederschlag, Berge im Bild. Kaltfront: Schauer, Gewitter, Böen. Warmfront: Aufzug, Dauerregen.</p>
+</section>
+<section>
+<h2>Höhenprofil (0 bis 8 km)</h2>
+<canvas id="pf" width="400" height="300" role="img" aria-label="Temperatur und Taupunkt über der Höhe"></canvas>
+<p class="cap" id="pfcap"></p>
+</section>
+</div>
+
+<section class="card" style="margin:0 0 12px">
+<h2>Druckkarte der Umgebung</h2>
+<div class="bar" style="margin:0 0 8px">
+<label class="tg"><input type="checkbox" id="lyIso" checked> Isobaren</label>
+<label class="tg"><input type="checkbox" id="lyCol" checked> Druckfarben</label>
+<label class="tg"><input type="checkbox" id="lyLand" checked> Meer und Küste</label>
+<label class="tg"><input type="checkbox" id="lyWnd" checked> Wind in 10 m</label>
+</div>
+<canvas id="mp" width="640" height="462" role="img" aria-label="Druckkarte mit Isobaren, Hoch- und Tiefdruckzentren und Windpfeilen"></canvas>
+<p class="cap" id="mpcap"></p>
+<div class="metrics" style="margin:8px 0 0">
+<div class="m"><small>Drucktendenz</small><b id="mTend"></b></div>
+<div class="m"><small>Druckgefälle am Ort</small><b id="mGrad"></b></div>
+<div class="m"><small>Wind laut Gefälle</small><b id="mGeo"></b></div>
+<div class="m"><small>Nächstes Hoch oder Tief</small><b id="mNear"></b></div>
+</div>
+</section>
+<div class="metrics">
+<div class="m"><small>Taupunkt</small><b id="mTd"></b></div>
+<div class="m"><small>Wolkenbasis</small><b id="mBase"></b></div>
+<div class="m"><small>Bewölkung</small><b id="mCov"></b></div>
+<div class="m"><small>Wind</small><b id="mWind"></b></div>
+<div class="m"><small>Niederschlag</small><b id="mPrec"></b></div>
+<div class="m"><small>Nullgradgrenze</small><b id="mFrz"></b></div>
+<div class="m"><small>Sonnenhöhe</small><b id="mSun"></b></div>
+<div class="m"><small>Strahlung am Boden</small><b id="mRad"></b></div>
+<div class="m"><small>Tageslänge</small><b id="mLen"></b></div>
+</div>
+<div class="chips" id="chips"></div>
+<div class="card"><h2>Wetterbericht</h2><p id="report"></p></div>
+<h2 class="sec">Warum ist das Wetter gerade so?</h2>
+<div class="why" id="why"></div>
+<h2 class="sec">Für Flugschüler</h2>
+<div class="chips" id="vfr"></div>
+<div class="why" id="fly"></div>
+<p class="cap">Lernhilfe, keine Flugwetterberatung. Für echte Flüge zählen METAR, TAF und die Beratung des DWD, nicht diese Seite.</p>
+<h2 class="sec">Begriffe kurz erklärt</h2>
+<details><summary>Isobaren und Druckgradient</summary><p>Isobaren sind Linien gleichen Luftdrucks auf Meereshöhe. Der Druckgradient ist der Druckunterschied pro Strecke. Eng liegende Isobaren bedeuten ein großes Gefälle und damit starken Wind.</p></details>
+<details><summary>Geostrophischer Wind und Buys-Ballot</summary><p>In der Höhe, wo Reibung kaum wirkt, weht der Wind parallel zu den Isobaren: Gradientkraft und Corioliskraft gleichen sich aus. Mit dem Rücken zum Wind liegt auf der Nordhalbkugel das Tief links. In Mitteleuropa entspricht 1 hPa pro 100 km grob 25 km/h. Am Boden bremst die Reibung den Wind und dreht ihn zum Tief hin.</p></details>
+<details><summary>Hoch und Tief</summary><p>Im Hoch sinkt Luft ab und erwärmt sich, Wolken lösen sich auf. Im Tief steigt Luft auf, kühlt ab, kondensiert: Wolken und Niederschlag. Auf der Nordhalbkugel kreist der Wind im Hoch im Uhrzeigersinn, im Tief dagegen.</p></details>
+<details><summary>Taupunkt, Spread und Kondensationsniveau</summary><p>Der Taupunkt ist die Temperatur, bei der die Luft gesättigt ist. Der Abstand zur Lufttemperatur heißt Spread. Aufsteigende Luft kühlt trocken um etwa 1 K pro 100 m, deshalb liegt die Wolkenuntergrenze etwa bei Spread mal 125 m.</p></details>
+<details><summary>Labilität</summary><p>Ein aufsteigendes Luftpaket ist labil, wenn es wärmer bleibt als die Umgebung. Dann steigt es von selbst weiter, es entstehen Quellwolken und Gewitter. Im Höhenprofil ist das die rote Fläche.</p></details>
+<details><summary>Front</summary><p>Eine Front ist die Grenze zwischen warmer und kalter Luftmasse. An der Warmfront gleitet warme Luft langsam auf: Schichtwolken, Dauerregen. An der Kaltfront schiebt sich Kaltluft unter die warme: Schauer, Gewitter, Böen, danach Aufklaren.</p></details>
+<details><summary>QNH, Druckhöhe und Dichtehöhe</summary><p>QNH ist der auf Meereshöhe umgerechnete Druck, mit dem der Höhenmesser die Höhe über dem Meer anzeigt. Die Druckhöhe ist die Höhe in der Standardatmosphäre bei dem herrschenden Druck. Die Dichtehöhe korrigiert zusätzlich die Temperatur: Warme Luft ist dünn, das Flugzeug verhält sich, als läge der Platz höher.</p></details>
+<p class="foot">Wetterdaten: Open-Meteo.com (weltweit, Modell-Gitterpunkt) und für Deutschland Messstationen des Deutschen Wetterdienstes (DWD) über Bright Sky. Die Darstellung ist ein vereinfachtes Modell und ersetzt keinen Wetterbericht.</p>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const clamp=(x,a,b)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,t)=>a+(b-a)*t;
+const mix=(A,B,t)=>[lerp(A[0],B[0],t),lerp(A[1],B[1],t),lerp(A[2],B[2],t)];
+const rgb=(c,a)=>'rgba('+Math.round(c[0])+','+Math.round(c[1])+','+Math.round(c[2])+','+(a===undefined?1:a)+')';
+const shade=(c,k)=>[c[0]*k,c[1]*k,c[2]*k];
+const W=680,H=340,G=292;let phi=53*Math.PI/180;
+const cv=$('c'),ctx=cv.getContext('2d'),pcv=$('pf'),pctx=pcv.getContext('2d'),mcv=$('mp'),mctx=mcv.getContext('2d');let msc=1;
+function rng(s){return function(){s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+
+function mdl(P,S,RH,T,t,doy,loc,fr,iv){
+ S=S/100;
+ RH=Math.min(100,RH+(fr===1?10:fr===2?12:0)+(loc===1?5:0));
+ const dec=23.44*Math.sin(2*Math.PI*(doy-81)/365)*Math.PI/180;
+ const hr=(t-12)*15*Math.PI/180;
+ const sinE=Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(hr);
+ const e=Math.asin(sinE)*180/Math.PI;
+ const dayLen=2*Math.acos(clamp(-Math.tan(phi)*Math.tan(dec),-1,1))*180/Math.PI/15;
+ const a=17.62,b=243.12,g=Math.log(RH/100)+a*T/(b+T),Td=b*g/(a-g);
+ const spread=Math.max(0,T-Td),lcl=clamp(125*spread,0,6000);
+ const sunRaw=S*Math.max(0,sinE);
+ let conv=clamp(clamp(T-8,0,25)/25*clamp((RH-45)/45,0,1)*(0.35+0.65*sunRaw)*clamp(1+(1013-P)/50,0.3,1.8),0,2);
+ if(fr===1)conv=Math.min(2,conv+0.45);else if(fr===2)conv*=0.5;
+ let cover=Math.pow(clamp((RH-55)/40,0,1),0.9)+clamp((1013-P)/80,-0.25,0.35);
+ cover*=clamp((RH-30)/25,0,1);
+ if(conv>0.2&&RH>55)cover=Math.max(cover,clamp(conv*0.9,0,0.9));
+ if(fr===1)cover=Math.max(cover,0.7);if(fr===2)cover=Math.max(cover,0.9);
+ cover=clamp(cover,0,1);
+ let w=1.5+Math.max(0,1013-P)*0.4+Math.max(0,P-1030)*0.05+conv*5+(fr===1?4:fr===2?2:0);
+ w=clamp(w*(loc===1?1.3:loc===2?1.4:1),0.5,35);
+ const bft=Math.round(Math.pow(w/0.836,2/3));
+ const fog=spread<1.2&&RH>=93&&w<4&&sunRaw<0.6;
+ const inv={on:false,type:'',zi:0,dT:0,dz:300};
+ {
+  const subs=P>=1017?clamp((P-1015)/20,0,1):0,radN=sunRaw<0.12&&cover<0.6&&w<3.5&&RH>=55;
+  if(iv!==2&&(iv===1||(subs>0.1&&w<6)||radN)){
+   inv.on=true;
+   if(!radN){inv.type='Absinkinversion';inv.zi=clamp(1700-(P-1015)*40,350,1600);if(subs<=0.1)inv.zi=900;inv.dT=3+5*subs;inv.dz=300}
+   else{inv.type='Bodeninversion';inv.zi=120;inv.dT=4;inv.dz=100}
+   conv*=0.4;
+  }
+ }
+ const trapped=inv.on&&inv.type==='Absinkinversion'&&RH>=78&&lcl<inv.zi;
+ if(trapped)cover=Math.max(cover,clamp((RH-65)/25,0.6,1));
+ const hochnebel=trapped&&cover>0.7&&lcl>=40&&!fog;
+ let type;
+ if(fog)type='Nebel';else if(hochnebel)type='Hochnebel';else if(conv>0.6&&RH>60)type='Cumulonimbus';
+ else if(conv>0.2&&cover>0.1&&RH<92)type='Cumulus';
+ else if(cover>0.55)type=lcl<1500?'Stratus':'Altostratus';
+ else if(cover>0.08)type='Cirrus';else type='keine';
+ const strat=clamp((RH-80)/20,0,1)*clamp((cover-0.55)/0.45,0,1);
+ const shower=(RH>55&&conv>0.4)?clamp((conv-0.4)/0.5,0,1)*0.95:0;
+ let p=Math.max(strat,shower);
+ if(type==='Hochnebel')p=Math.min(p,RH>=95?0.1:0);
+ if(fr===2&&cover>0.85&&RH>=70)p=Math.max(p,0.35);
+ if(loc===2&&cover>0.5)p=Math.min(1,p*1.3);
+ if(fog)p=Math.min(p,0.12);if(p<0.04)p=0;
+ let pt='keiner';
+ if(p>0){pt=T<=-0.5?'Schnee':T<=2?'Schneeregen':'Regen';if(conv>0.9&&T>12&&p>0.5)pt='Hagel';}
+ const thunder=conv>0.6&&p>0.25&&T>6;
+ const rainbow=pt==='Regen'&&p>0.05&&p<0.85&&e>3&&e<42&&sunRaw*(1-0.6*cover)>0.1&&!fog;
+ return{inv,P,S,RH,T,t,doy,loc,fr,hr,e,dayLen,Td,spread,lcl,sunRaw,conv,cover,w,bft,fog,type,p,pt,thunder,rainbow};
+}
+
+let s,clouds=[],parts=[],flash=0,bolt=null,tick=0,sc=1,live=null,liveName='',mapData=null,lastHeavy=0,mapKey='',forceMap=false;
+const names=['Winter','Frühling','Sommer','Herbst'];
+function fmtT(t){const h=Math.floor(t)%24,m=Math.round((t%1)*60)%60;return String(h).padStart(2,'0')+':'+String(m).padStart(2,'0')}
+
+function report(){
+ const night=s.e<-3;
+ const sky=s.type==='Nebel'?'neblig':s.cover<0.15?(night?'klar':'sonnig'):s.cover<0.4?'heiter':s.cover<0.7?'wolkig':s.cover<0.9?'stark bewölkt':'bedeckt';
+ const T=s.T,tw=T<-10?'strengem Frost':T<0?'Frost':T<8?'kühlen Temperaturen':T<16?'milden Temperaturen':T<24?'angenehmen Temperaturen':T<30?'warmen Temperaturen':'großer Hitze';
+ const wd=s.bft<=2?'schwacher Wind':s.bft<=4?'mäßiger Wind':s.bft<=6?'frischer bis starker Wind':s.bft<=7?'steifer Wind':'stürmischer Wind';
+ let r='Zum Zeitpunkt '+fmtT(s.t)+' Uhr ist es '+sky+' bei '+tw+' ('+s.T+' °C) und '+wd+'.';
+ if(s.pt==='Hagel')r+=' Es hagelt, dazu gibt es Gewitter. Aufenthalt im Freien vermeiden.';
+ else if(s.thunder)r+=' Gewitter mit '+(s.p>0.6?'Starkregen':'Regen')+' sind unterwegs.';
+ else if(s.pt==='Regen')r+=s.p<0.25?' Leichter Nieselregen.':s.p<0.6?' Zeitweise Regen.':' Anhaltender Starkregen.';
+ else if(s.pt==='Schnee')r+=s.p<0.3?' Leichter Schneefall.':' Kräftiger Schneefall mit Sichtbehinderung.';
+ else if(s.pt==='Schneeregen')r+=' Schneeregen, Rutschgefahr.';
+ else if(s.fog)r+=' Die Sicht ist durch Nebel stark eingeschränkt.';
+ else r+=' Es bleibt trocken.';
+ if(s.rainbow)r+=' Bei tief stehender Sonne ist ein Regenbogen möglich.';
+ if(s.frost)r+=' Es bildet sich Reif, Vorsicht bei Glätte.';
+ if(s.heat)r+=' Hitzebelastung: viel trinken und Mittagssonne meiden.';
+ if(s.T>=22&&s.Td>=16)r+=' Die Luft ist schwül.';
+ if(s.bft>=8)r+=' Sturmwarnung.';
+ if(s.fr===1)r+=' Eine Kaltfront zieht durch: böig, Schauer, danach klarer.';
+ if(s.fr===2)r+=' Eine Warmfront nähert sich: Wolken verdichten sich, Dauerregen möglich.';
+ if(s.P>=1022)r+=' Hochdruckeinfluss sorgt für stabile Verhältnisse.';else if(s.P<=1005)r+=' Tiefdruckeinfluss macht das Wetter wechselhaft.';
+ return r;
+}
+
+function update(force){
+ const v=k=>+$(k).value;
+ s=mdl(v('P'),v('S'),v('RH'),v('T'),v('H'),v('D'),live?0:v('L'),live?0:v('F'),+$('V').value);s.loc=v('L');s.fr=v('F');
+ const dt=new Date(2025,0,s.doy);s.month=dt.getMonth();s.season=[0,0,1,1,1,2,2,2,3,3,3,0][s.month];
+ s.d=clamp((s.e+5)/15,0,1);s.d=s.d*s.d*(3-2*s.d);
+ s.dirx=live?live.dirx:1;
+ if(live){
+  s.cover=live.cover;s.fog=live.fog;s.thunder=live.thunder;s.p=live.p<0.04?0:live.p;s.pt=s.p?live.pt:'keiner';
+  s.w=live.w;s.bft=Math.round(Math.pow(s.w/0.836,2/3));
+  if(s.thunder)s.conv=Math.max(s.conv,0.7);
+  s.rainbow=s.pt==='Regen'&&s.p>0.05&&s.p<0.85&&s.e>3&&s.e<42&&s.sunRaw*(1-0.6*s.cover)>0.1&&!s.fog;
+  s.type=s.fog?'Nebel':(s.inv.on&&s.inv.type==='Absinkinversion'&&s.cover>0.7&&s.lcl<s.inv.zi&&s.lcl>=40&&!s.thunder)?'Hochnebel':(s.thunder||(s.conv>0.6&&s.RH>60&&s.cover>0.4))?'Cumulonimbus':(s.conv>0.2&&s.cover>0.1&&s.RH<92)?'Cumulus':s.cover>0.55?(s.lcl<1500?'Stratus':'Altostratus'):s.cover>0.08?'Cirrus':'keine';
+ }
+ s.skyCov=s.type==='Hochnebel'?s.cover*0.15:s.cover;
+ s.base=s.type==='Cirrus'?5500:s.lcl;
+ s.ybase=G-8-clamp(s.base,0,4500)/4500*(G-70);
+ s.snowG=s.T<=0&&(s.pt==='Schnee'||s.pt==='Schneeregen'||(s.RH>70&&s.season===0&&s.T<=-1));
+ s.frost=s.T<=0&&s.cover<0.6&&s.sunRaw<0.2&&s.RH>70;
+ s.dew=s.T>0&&s.T<18&&s.RH>90&&s.sunRaw<0.25&&s.cover<0.75&&s.p===0&&!s.fog;
+ s.heat=s.T>=30&&s.sunRaw>0.4;
+ s.dark=clamp(s.cover*0.3+s.p*0.5+(s.type==='Cumulonimbus'?0.3:0),0,1);
+ s.gamma=clamp(6.5+(s.conv-0.3)*5-clamp((s.P-1015)/10,0,3),1,9.6);
+ s.frz=s.T>0?s.T/s.gamma*1000:0;
+ const r=rng(11);clouds=[];
+ const n=s.type==='keine'?0:Math.round(s.cover*9)+1;
+ for(let i=0;i<n;i++)clouds.push({x:r()*W*1.4-W*0.2,u:r(),v:r(),sc:0.75+r()*0.6});
+ $('Po').textContent=s.P+' hPa';$('So').textContent=Math.round(s.S*100)+' %';
+ $('RHo').textContent=v('RH')+' %';$('To').textContent=s.T+' °C';$('Ho').textContent=fmtT(s.t)+' Uhr';
+ $('Do').textContent=dt.toLocaleDateString('de-DE',{day:'numeric',month:'short'})+' · '+names[s.season];
+ $('mTd').textContent=s.Td.toFixed(1)+' °C';
+ $('mBase').textContent=s.type==='keine'?'keine Wolken':s.fog?'am Boden':(s.base>=1000?(s.base/1000).toFixed(1)+' km':Math.round(s.base/10)*10+' m');
+ $('mCov').textContent=Math.round(s.cover*8)+' / 8';
+ $('mWind').textContent=s.bft+' Bft · '+Math.round(s.w*3.6)+' km/h'+(live&&live.wd!=null?' aus '+['N','NO','O','SO','S','SW','W','NW'][Math.round(live.wd/45)%8]:'');
+ const mm=s.p*s.p*40;
+ $('mPrec').textContent=s.pt==='keiner'?'kein':s.pt+(s.pt==='Regen'||s.pt==='Hagel'?' · '+(mm<1?mm.toFixed(1):Math.round(mm))+' mm/h':'');
+ $('mFrz').textContent=s.T<=0?'am Boden':(s.frz>=1000?(s.frz/1000).toFixed(1)+' km':Math.round(s.frz/10)*10+' m');
+ $('mSun').textContent=s.e>0?Math.round(s.e)+'°':'unter Horizont';
+ $('mRad').textContent=Math.round(1000*s.sunRaw*(1-0.75*s.cover))+' W/m²';
+ $('mLen').textContent=Math.floor(s.dayLen)+' h '+Math.round((s.dayLen%1)*60)%60+' min';
+ const ch=[],warn=t=>ch.push([t,1]),ok=t=>ch.push([t,0]);
+ ok(s.type==='keine'?'wolkenlos':'Wolkenart: '+s.type);
+ if(s.thunder)warn('Gewitter');
+ if(s.pt==='Hagel')warn('Hagel');
+ else if(s.pt==='Regen')ok(s.p<0.25?'Nieselregen':s.p<0.6?'Regen':'Starkregen');
+ else if(s.pt==='Schnee')ok('Schneefall');
+ else if(s.pt==='Schneeregen')ok('Schneeregen');
+ if(s.fog)ok('Nebel');else if(s.RH>85&&s.spread<2.5&&s.p===0)ok('Dunst');
+ if(s.bft>=8)warn('Sturm');else if(s.bft>=6)ok('starker Wind');
+ if(s.rainbow)ok('Regenbogen');
+ if(s.frost)ok('Reif und Frost');
+ if(s.dew)ok('Tau');
+ if(s.snowG)ok('Schneedecke');
+ if(s.heat)warn('Hitze, Flimmern');
+ if(s.T>=22&&s.Td>=16)ok('schwül');
+ if(s.fr===1)ok('Kaltfront');if(s.fr===2)ok('Warmfront');
+ if(live&&live.fh&&live.fh.type&&!s.fr)ok(live.fh.type+'? (Verdacht)');
+ if(s.loc===2&&s.p>0)ok('Stauniederschlag');
+ if(s.e>-2&&s.e<8&&s.cover<0.8)ok(s.t<12?'Morgenrot':'Abendrot');
+ if(s.inv.on)ok(s.inv.type==='Bodeninversion'?'Bodeninversion (Kaltluftsee)':'Absinkinversion in ca. '+Math.round(s.inv.zi/50)*50+' m');
+ if(s.P>=1022)ok('Hochdruck');if(s.P<=1005)ok('Tiefdruck');
+ if(s.e<-6)ok('Nacht');
+ const now=performance.now();
+ if(force||!mode||now-lastHeavy>350){
+  lastHeavy=now;
+  $('chips').innerHTML=ch.map(c=>'<span class="chip'+(c[1]?' w':'')+'">'+c[0]+'</span>').join('');
+  $('report').textContent=report();
+  drawProfile();
+  const syn=synop();renderSyn(syn);renderExplain(syn);
+  const mk=(mapData?mapData.name:'-')+(live?1:0);
+  if(force||mk!==mapKey||forceMap){mapKey=mk;forceMap=false;drawMap()}
+ }
+}
+
+function drawProfile(){
+ const w=pcv.width/ (window.devicePixelRatio||1)>0?pcv.width:400,h=pcv.height;
+ const c=pctx,cs=getComputedStyle(document.documentElement),fg=cs.getPropertyValue('--fg').trim(),mut=cs.getPropertyValue('--mut').trim(),bd=cs.getPropertyValue('--bd').trim();
+ c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,w,h);
+ const k=w/400;c.setTransform(k,0,0,k,0,0);
+ const PW=400,PH=300,pl=40,pr=12,pt=10,pb=26;
+ const X=T=>pl+(T+70)/120*(PW-pl-pr),Y=z=>PH-pb-z/8000*(PH-pt-pb);
+ c.fillStyle=cs.getPropertyValue('--card').trim();c.fillRect(0,0,PW,PH);
+ c.font='11px system-ui,sans-serif';c.lineWidth=1;
+ for(let z=0;z<=8000;z+=2000){c.strokeStyle=bd;c.beginPath();c.moveTo(pl,Y(z));c.lineTo(PW-pr,Y(z));c.stroke();c.fillStyle=mut;c.textAlign='right';c.fillText(z/1000+' km',pl-5,Y(z)+4)}
+ for(let T=-60;T<=40;T+=20){c.strokeStyle=bd;c.beginPath();c.moveTo(X(T),pt);c.lineTo(X(T),PH-pb);c.stroke();c.fillStyle=mut;c.textAlign='center';c.fillText(T+'°',X(T),PH-pb+14)}
+ c.save();c.beginPath();c.rect(pl,pt,PW-pl-pr,PH-pt-pb);c.clip();
+ const iv=s.inv,env=z=>s.T-s.gamma*z/1000+(iv.on?iv.dT*clamp((z-iv.zi)/iv.dz,0,1):0),lclz=s.lcl;
+ const par=z=>z<=lclz?s.T-9.8*z/1000:s.T-9.8*lclz/1000-5*(z-lclz)/1000;
+ let area=0;
+ if(iv.on){c.fillStyle='rgba(239,159,39,0.2)';c.fillRect(pl,Y(iv.zi+iv.dz),PW-pl-pr,Math.max(3,Y(iv.zi)-Y(iv.zi+iv.dz)))}
+ c.fillStyle='rgba(226,75,74,0.28)';c.beginPath();let open=false;
+ for(let z=lclz;z<=8000;z+=100){if(par(z)>env(z)){c.lineTo(X(par(z)),Y(z));if(!open){c.moveTo(X(env(z)),Y(z));c.lineTo(X(par(z)),Y(z));open=true}area+=(par(z)-env(z))*0.1}}
+ if(open){for(let z=8000;z>=lclz;z-=100)if(par(z)>env(z))c.lineTo(X(env(z)),Y(z));c.fill();}
+ const line=(f,col,dash)=>{c.setLineDash(dash||[]);c.strokeStyle=col;c.lineWidth=2;c.beginPath();for(let z=0;z<=8000;z+=100){const x=X(f(z)),y=Y(z);z?c.lineTo(x,y):c.moveTo(x,y)}c.stroke();c.setLineDash([])};
+ line(z=>s.Td-1.8*z/1000,'#378add');
+ line(par,'#ef9f27',[5,4]);
+ line(env,'#e24b4a');
+ c.setLineDash([4,4]);c.strokeStyle=mut;c.lineWidth=1;
+ if(lclz<8000){c.beginPath();c.moveTo(pl,Y(lclz));c.lineTo(PW-pr,Y(lclz));c.stroke()}
+ c.setLineDash([]);c.restore();
+ c.textAlign='left';if(iv.on&&iv.zi<7500){c.fillStyle='#b45309';c.fillText('Inversion',PW-pr-58,Y(iv.zi)-4)}
+ c.fillStyle=mut;if(lclz<7500)c.fillText('Kondensationsniveau',pl+4,Y(lclz)-4);
+ c.fillStyle='#e24b4a';c.fillText('Umgebungsluft',pl+4,pt+12);
+ c.fillStyle='#ef9f27';c.fillText('Luftpaket',pl+104,pt+12);
+ c.fillStyle='#378add';c.fillText('Taupunkt',pl+170,pt+12);
+ const lab=iv.on?'sehr stabil, die Inversion wirkt als Deckel':area>25?'stark labil, Gewitterwolken möglich':area>6?'labil, Quellwolken möglich':area>0?'leicht labil':'stabil, Luftpaket steigt kaum';
+ $('pfcap').textContent='Schichtung: '+lab+'. Rot schraffiert: Bereich, in dem das aufsteigende Luftpaket wärmer als die Umgebung ist.';
+}
+
+
+const dirs8=['Nord','Nordost','Ost','Südost','Süd','Südwest','West','Nordwest'];
+const cmp=d=>dirs8[Math.round((((d%360)+360)%360)/45)%8];
+const MW=640,MH=462,KX=4,KY=3,DXK=450,DYK=1300/3;
+function gridCoords(lat,lon){
+ const nx=2*KX+1,ny=2*KY+1,cl=Math.max(0.2,Math.cos(lat*Math.PI/180)),dlat=DYK/111.2,dlon=DXK/(111.2*cl),LA=[],LO=[];
+ for(let j=0;j<ny;j++)for(let i=0;i<nx;i++){
+  LA.push(+clamp(lat+(KY-j)*dlat,-89,89).toFixed(2));
+  LO.push(+((((lon+(i-KX)*dlon)+180)%360+360)%360-180).toFixed(2));
+ }
+ return{nx,ny,LA,LO,dlat,dlon};
+}
+async function fetchMap(p){
+ const g=gridCoords(p.latitude,p.longitude);
+ const u='https://api.open-meteo.com/v1/forecast?latitude='+g.LA.join(',')+'&longitude='+g.LO.join(',')+'&current=pressure_msl,temperature_2m,wind_speed_10m,wind_direction_10m&hourly=pressure_msl&past_hours=3&forecast_hours=1&wind_speed_unit=kmh&timezone=UTC';
+ const j=await jget(u),arr=Array.isArray(j)?j:[j];
+ if(arr.length<g.nx*g.ny)throw new Error('Rasterdaten unvollständig');
+ const P=[],Wd=[],Wv=[];
+ for(let jj=0;jj<g.ny;jj++){P.push([]);Wd.push([]);Wv.push([]);for(let i=0;i<g.nx;i++){const o=arr[jj*g.nx+i],c=o.current;P[jj].push(c.pressure_msl);Wd[jj].push(c.wind_direction_10m);Wv[jj].push(c.wind_speed_10m)}}
+ const ci=KX,cj=KY,o=arr[cj*g.nx+ci];let tend=null;
+ try{
+  const ph=o.hourly.pressure_msl[0],dt=(new Date(o.current.time+':00Z')-new Date(o.hourly.time[0]+':00Z'))/36e5;
+  if(ph!=null&&dt>0.5)tend=(P[cj][ci]-ph)*3/dt;
+ }catch(e){}
+ const m={nx:g.nx,ny:g.ny,dx:DXK,dy:DYK,dlat:g.dlat,dlon:g.dlon,lon:p.longitude,lat:p.latitude,p:P,wd:Wd,wv:Wv,tend,name:p.name||'Standort'};
+ m.up=upsample(P,g.nx,g.ny,8);m.ext=findExt(m);
+ return m;
+}
+function cr(a,b,c,d,t){return b+0.5*t*(c-a+t*(2*a-5*b+4*c-d+t*(3*(b-c)+d-a)))}
+function upsample(p,nx,ny,k){
+ const NX=(nx-1)*k+1,NY=(ny-1)*k+1,out=new Float32Array(NX*NY);
+ const g=(i,j)=>p[clamp(j,0,ny-1)][clamp(i,0,nx-1)];
+ for(let J=0;J<NY;J++){const j=Math.floor(J/k),ty=(J%k)/k;
+  for(let I=0;I<NX;I++){const i=Math.floor(I/k),tx=(I%k)/k;
+   const r=[-1,0,1,2].map(dj=>cr(g(i-1,j+dj),g(i,j+dj),g(i+1,j+dj),g(i+2,j+dj),tx));
+   out[J*NX+I]=cr(r[0],r[1],r[2],r[3],ty);
+  }}
+ return{NX,NY,F:out};
+}
+function findExt(m){
+ const{NX,NY,F}=m.up,R=10,res=[];
+ for(let J=R;J<NY-R;J++)for(let I=R;I<NX-R;I++){
+  const v=F[J*NX+I];let mn=true,mx=true;
+  for(let dj=-R;dj<=R&&(mn||mx);dj++)for(let di=-R;di<=R;di++){
+   if(!di&&!dj)continue;const w=F[(J+dj)*NX+I+di];
+   if(w<v)mn=false;if(w>v)mx=false;if(!mn&&!mx)break;
+  }
+  if(mn||mx){
+   let sum=0;for(let a=0;a<16;a++){const an=a/16*2*Math.PI;sum+=F[(J+Math.round(R*Math.sin(an)))*NX+I+Math.round(R*Math.cos(an))]}
+   const amp=Math.abs(sum/16-v);
+   if(amp>=1.5)res.push({type:mn?'T':'H',val:v,I,J,amp});
+  }
+ }
+ res.sort((a,b)=>b.amp-a.amp);
+ const out=[];
+ res.forEach(e=>{if(!out.some(o=>o.type===e.type&&Math.hypot(o.I-e.I,o.J-e.J)<30))out.push(e)});
+ out.forEach(e=>{e.dxk=(e.I/(NX-1)-0.5)*(m.nx-1)*m.dx;e.dyk=(0.5-e.J/(NY-1))*(m.ny-1)*m.dy;e.dist=Math.hypot(e.dxk,e.dyk);e.brg=((Math.atan2(e.dxk,e.dyk)*180/Math.PI)+360)%360});
+ out.sort((a,b)=>a.dist-b.dist);
+ return out;
+}
+function isoSegs(F,NX,NY,L,seg){
+ for(let j=0;j<NY-1;j++)for(let i=0;i<NX-1;i++){
+  const a=F[j*NX+i],b=F[j*NX+i+1],c=F[(j+1)*NX+i+1],d=F[(j+1)*NX+i];
+  const idx=(a>L?8:0)|(b>L?4:0)|(c>L?2:0)|(d>L?1:0);
+  if(idx===0||idx===15)continue;
+  const T=[i+(L-a)/(b-a),j],R=[i+1,j+(L-b)/(c-b)],B=[i+(L-d)/(c-d),j+1],Lf=[i,j+(L-a)/(d-a)];
+  switch(idx){
+   case 1:case 14:seg(Lf,B);break;case 2:case 13:seg(B,R);break;case 3:case 12:seg(Lf,R);break;
+   case 4:case 11:seg(T,R);break;case 6:case 9:seg(T,B);break;case 7:case 8:seg(Lf,T);break;
+   case 5:seg(Lf,T);seg(B,R);break;case 10:seg(T,R);seg(Lf,B);break;
+  }
+ }
+}
+function arrow(c,x,y,ang,len,col,lw){
+ const dx=Math.sin(ang)*len,dy=-Math.cos(ang)*len,x0=x-dx/2,y0=y-dy/2,x1=x+dx/2,y1=y+dy/2,hl=Math.min(6,len*0.4);
+ c.strokeStyle=col;c.fillStyle=col;c.lineWidth=lw;c.lineCap='round';
+ c.beginPath();c.moveTo(x0,y0);c.lineTo(x1,y1);c.stroke();
+ const a=Math.atan2(dy,dx);c.beginPath();c.moveTo(x1,y1);c.lineTo(x1-hl*Math.cos(a-0.45),y1-hl*Math.sin(a-0.45));c.lineTo(x1-hl*Math.cos(a+0.45),y1-hl*Math.sin(a+0.45));c.closePath();c.fill();
+}
+function drawMap(){
+ const c=mctx,cs=getComputedStyle(document.documentElement),fg=cs.getPropertyValue('--fg').trim(),mut=cs.getPropertyValue('--mut').trim(),card=cs.getPropertyValue('--card').trim();
+ c.setTransform(1,0,0,1,0,0);c.clearRect(0,0,mcv.width,mcv.height);c.setTransform(msc,0,0,msc,0,0);
+ c.fillStyle=card;c.fillRect(0,0,MW,MH);
+ const cap=$('mpcap');
+ if(!mapData){
+  c.fillStyle=mut;c.font='14px system-ui,sans-serif';c.textAlign='center';
+  c.fillText('Noch keine Karte. Oben einen Ort suchen oder "Mein Standort" wählen.',MW/2,MH/2);
+  cap.textContent='Die Karte zeigt den Luftdruck auf Meereshöhe rund um den gewählten Ort (etwa 3600 mal 2600 km).';
+  return;
+ }
+ const m=mapData,{NX,NY,F}=m.up,X=gx=>gx/(NX-1)*MW,Y=gy=>gy/(NY-1)*MH;
+ if($('lyCol').checked){
+  const oc=document.createElement('canvas');oc.width=NX;oc.height=NY;const ox=oc.getContext('2d'),im=ox.createImageData(NX,NY);
+  for(let k=0;k<NX*NY;k++){
+   const t=clamp((F[k]-1013)/25,-1,1),al=0.42*Math.pow(Math.abs(t),0.7),col=t<0?[60,120,210]:[235,140,60];
+   im.data[k*4]=col[0];im.data[k*4+1]=col[1];im.data[k*4+2]=col[2];im.data[k*4+3]=Math.round(al*255);
+  }
+  ox.putImageData(im,0,0);c.imageSmoothingEnabled=true;c.drawImage(oc,0,0,MW,MH);
+ }
+ if($('lyLand').checked)c.drawImage(seaLayer(m),0,0,MW,MH);
+ let mn=1e9,mxv=-1e9;for(let k=0;k<F.length;k++){if(F[k]<mn)mn=F[k];if(F[k]>mxv)mxv=F[k]}
+ if($('lyIso').checked){
+  const used=[];c.font='11px system-ui,sans-serif';c.textAlign='center';
+  for(let L=Math.ceil(mn/4)*4;L<=mxv;L+=4){
+   const segs=[];isoSegs(F,NX,NY,L,(a,b)=>segs.push([a,b]));
+   c.strokeStyle=L===1012?fg:mut;c.globalAlpha=L%20===0?0.95:0.6;c.lineWidth=L%20===0?1.8:1;
+   c.beginPath();segs.forEach(s2=>{c.moveTo(X(s2[0][0]),Y(s2[0][1]));c.lineTo(X(s2[1][0]),Y(s2[1][1]))});c.stroke();c.globalAlpha=1;
+   if(segs.length>6){
+    for(let tries=0;tries<segs.length;tries+=Math.max(1,Math.floor(segs.length/12))){
+     const sg=segs[(Math.floor(segs.length*0.4)+tries)%segs.length],px=X((sg[0][0]+sg[1][0])/2),py=Y((sg[0][1]+sg[1][1])/2);
+     if(px<24||px>MW-24||py<14||py>MH-14)continue;
+     if(used.some(u=>Math.hypot(u[0]-px,u[1]-py)<70))continue;
+     used.push([px,py]);c.fillStyle=card;c.fillRect(px-13,py-7,26,14);c.fillStyle=fg;c.fillText(L,px,py+4);break;
+    }
+   }
+  }
+ }
+ if($('lyWnd').checked){
+  for(let j=0;j<m.ny;j++)for(let i=0;i<m.nx;i++){
+   const v=m.wv[j][i],d=m.wd[j][i];if(v==null||d==null)continue;
+   arrow(c,i/(m.nx-1)*MW,j/(m.ny-1)*MH,(d+180)*Math.PI/180,clamp(8+v*0.7,8,40),'rgba(24,95,165,0.85)',1.6);
+  }
+ }
+ m.ext.forEach(e=>{
+  const x=X(e.I),y=Y(e.J),col=e.type==='T'?'#185fa5':'#c2410c';
+  c.fillStyle=col;c.font='600 26px system-ui,sans-serif';c.textAlign='center';c.fillText(e.type,x,y+8);
+  c.font='600 12px system-ui,sans-serif';c.fillStyle=fg;c.fillText(Math.round(e.val),x,y+24);
+ });
+ if($('lyLand').checked){c.font='11px system-ui,sans-serif';const lw=c.measureText('Schraffur: Meer, Linie: Küste').width+12;c.fillStyle=card;c.globalAlpha=0.85;c.fillRect(8,MH-26,lw,18);c.globalAlpha=1;c.fillStyle=fg;c.textAlign='left';c.fillText('Schraffur: Meer, Linie: Küste',14,MH-13)}
+ const syn=synop(),cx=MW/2,cy=MH/2;
+ if(syn&&syn.geo){arrow(c,cx,cy,(syn.geo.from+180)*Math.PI/180,clamp(syn.geo.ms*3.6*0.9,24,80),'#d97706',3.2)}
+ c.strokeStyle=fg;c.lineWidth=2;c.beginPath();c.arc(cx,cy,6,0,7);c.stroke();
+ c.fillStyle=fg;c.font='600 12px system-ui,sans-serif';c.textAlign='left';c.fillText(m.name,cx+10,cy-10);
+ cap.textContent='Luftdruck auf Meereshöhe in hPa, Isobaren alle 4 hPa. Blaue Pfeile: Wind in 10 m Höhe (zeigen, wohin er weht). Oranger Pfeil: Wind, der sich rechnerisch aus dem Druckgefälle am Ort ergibt. T und H: Zentren von Tief und Hoch, soweit sie im Ausschnitt liegen. Schraffiert ist das Meer, die dunkle Linie die Küste (Auflösung etwa 10 km). Rasterabstand etwa 450 km, die Linien sind geglättet.';
+}
+function synop(){
+ const m=live&&mapData;if(!m)return null;
+ const p=m.p,ci=KX,cj=KY;
+ const dpdx=((p[cj-1][ci+1]-p[cj-1][ci-1])+2*(p[cj][ci+1]-p[cj][ci-1])+(p[cj+1][ci+1]-p[cj+1][ci-1]))/(4*2*m.dx);
+ const dpdy=((p[cj-1][ci-1]-p[cj+1][ci-1])+2*(p[cj-1][ci]-p[cj+1][ci])+(p[cj-1][ci+1]-p[cj+1][ci+1]))/(4*2*m.dy);
+ const grad=Math.hypot(dpdx,dpdy)*100,f=2*7.292e-5*Math.sin(m.lat*Math.PI/180);
+ let geo=null;
+ if(Math.abs(m.lat)>=10){const u=-(dpdy*0.1)/(1.225*f),v=(dpdx*0.1)/(1.225*f);geo={ms:Math.hypot(u,v),from:((Math.atan2(-u,-v)*180/Math.PI)+360)%360}}
+ return{grad,geo,ext:m.ext,tend:m.tend};
+}
+function renderSyn(syn){
+ if(!syn){['mTend','mGrad','mGeo','mNear'].forEach(k=>$(k).textContent='nur mit Live-Ort');return}
+ const t=syn.tend,n=syn.ext[0];
+ $('mTend').textContent=t==null?'unbekannt':(t>0?'+':'')+t.toFixed(1)+' hPa in 3 h';
+ $('mGrad').textContent=syn.grad.toFixed(1)+' hPa/100 km';
+ $('mGeo').textContent=syn.geo?Math.round(syn.geo.ms*3.6)+' km/h aus '+cmp(syn.geo.from):'nicht berechenbar';
+ $('mNear').textContent=n?(n.type==='T'?'Tief ':'Hoch ')+Math.round(n.val)+' hPa, '+Math.round(n.dist/10)*10+' km '+cmp(n.brg):'keines im Ausschnitt';
+}
+function renderExplain(syn){
+ const sec=[],fm=x=>Math.round(x/10)*10,P=s.P,T=s.T;
+ let l='Der auf Meereshöhe umgerechnete Luftdruck liegt bei <b>'+P+' hPa</b>. ';
+ l+=P>=1022?'Das ist Hochdruckeinfluss: Die Luft sinkt großräumig ab und erwärmt sich dabei. Wolken lösen sich auf, das Wetter ist meist ruhig und stabil.':P<=1005?'Das ist Tiefdruckeinfluss: Am Boden strömt Luft zusammen und muss nach oben ausweichen. Beim Aufsteigen kühlt sie ab, Wasserdampf kondensiert, es bilden sich Wolken und oft Niederschlag.':'Das ist ein mittlerer Wert. Ob das Wetter freundlich oder wechselhaft wird, entscheiden hier eher Fronten, Sonne und Feuchte als der Druck allein.';
+ if(syn){
+  const lo=syn.ext.find(e=>e.type==='T'),hi=syn.ext.find(e=>e.type==='H');
+  if(lo)l+=' Das nächste Tief im Kartenausschnitt hat etwa '+Math.round(lo.val)+' hPa und liegt rund '+fm(lo.dist)+' km in Richtung '+cmp(lo.brg)+'.';
+  if(hi)l+=' Das nächste Hoch hat etwa '+Math.round(hi.val)+' hPa und liegt rund '+fm(hi.dist)+' km in Richtung '+cmp(hi.brg)+'.';
+  if(!lo&&!hi)l+=' Im Kartenausschnitt gibt es kein geschlossenes Hoch oder Tief, der Druck steigt oder fällt nur großräumig in eine Richtung.';
+  const t=syn.tend;
+  if(t!=null)l+=' In den letzten 3 Stunden hat sich der Druck um '+(t>0?'+':'')+t.toFixed(1)+' hPa verändert: '+(t<=-3?'ein starker Fall, oft ein Zeichen für ein rasch nahendes Tief oder eine Front.':t<=-1?'er fällt. Das deutet auf ein nahendes Tief oder eine Front hin, Bewölkung und Wind nehmen oft zu.':t<1?'er bleibt nahezu gleich, die Wetterlage ändert sich also kaum.':t<3?'er steigt. Meist kommt ein Hoch näher oder das Tief zieht ab, es klart oft auf.':'ein starker Anstieg, typisch hinter einer Kaltfront mit Böen und rasch aufklarendem Himmel.');
+ }else l+=' Für Druckkarte, Tendenz und benachbarte Hoch- und Tiefdruckgebiete einen Ort laden.';
+ sec.push(['Großwetterlage',l]);
+ if(live&&live.fh){const fh=live.fh,fx=(x,d)=>x==null?'unbekannt':(x>0?'+':'')+x.toFixed(d);
+  let q;
+  if(fh.type){q='<b>'+fh.level.charAt(0).toUpperCase()+fh.level.slice(1)+' für eine '+fh.type+'</b> am Standort in den letzten Stunden. '+fh.reasons.join(' ')+' ';
+   q+=fh.type==='Kaltfront'?'Eine Kaltfront schiebt sich keilförmig unter die wärmere Luft. Das bringt Schauer, Böen und oft Gewitter, danach wird die Sicht meist besser und die Luft kühler.':'Bei einer Warmfront gleitet warme Luft auf kältere auf. Davor verdichten sich die Wolken, die Basis sinkt, und es folgt gleichmäßiger Dauerregen.';
+   q+=' Das ist eine Schätzung aus den Stundenwerten eines einzelnen Punktes und ersetzt keine Bodenanalyse. Die Karte des DWD zeigt die tatsächlichen Fronten.'}
+  else q='Keine deutlichen Frontanzeichen in den letzten Stunden. Druckänderung '+fx(fh.dp3,1)+' hPa in 3 Stunden, Temperaturänderung '+fx(fh.dT3,1)+' K'+(fh.veer!=null?', Winddrehung '+(fh.veer>0?'+':'')+Math.round(fh.veer)+'°':'')+'. Eine Front erkennt man meist an mehreren Signalen zugleich: Druck, Wind, Temperatur und Niederschlag ändern sich gemeinsam.';
+  sec.push(['Frontverdacht',q]);
+ }
+
+ let w='Am Boden weht Wind mit <b>'+s.bft+' Bft ('+Math.round(s.w*3.6)+' km/h)</b>'+(live&&live.wd!=null?' aus '+cmp(live.wd):'')+'. Wind entsteht, weil Luft vom hohen zum tiefen Druck strömt. Die Erdrotation lenkt sie ab, sodass sie in der Höhe fast parallel zu den Isobaren weht, mit dem Tief auf der linken Seite (Nordhalbkugel). Je enger die Isobaren liegen, desto stärker der Wind.';
+ if(syn&&syn.geo)w+=' Hier beträgt das Druckgefälle '+syn.grad.toFixed(1)+' hPa pro 100 km. Das ergibt rechnerisch etwa '+Math.round(syn.geo.ms*3.6)+' km/h aus '+cmp(syn.geo.from)+' (geostrophischer Wind). Gemessen sind '+Math.round(s.w*3.6)+' km/h: Bodenreibung bremst den Wind meist auf 50 bis 70 Prozent und dreht ihn etwa 30 Grad zum Tief hin.';
+ w+=' Faustregel nach Buys-Ballot: Mit dem Rücken zum Wind liegt das Tief links.';
+ sec.push(['Wind und Druckgefälle',w]);
+
+ let c='Temperatur '+T+' °C, Taupunkt '+s.Td.toFixed(1)+' °C: Der Abstand (Spread) beträgt <b>'+s.spread.toFixed(1)+' K</b>. ';
+ c+=s.spread<=1?'Die Luft ist praktisch gesättigt, Wasserdampf kondensiert schon am Boden.':s.spread<=3?'Die Luft ist nahe der Sättigung. Schon leichte Abkühlung oder Hebung lässt Wolken oder Nebel entstehen.':'Die Luft muss erst aufsteigen und abkühlen (etwa 1 K pro 100 m), bevor Wolken entstehen. Das Kondensationsniveau liegt bei etwa '+Math.round(s.lcl/10)*10+' m.';
+ const why={'Hochnebel':' Unter einer Inversion bleibt die feuchte Luft gefangen. Sie kann nicht höher steigen, kühlt unten ab und bildet eine geschlossene graue Schicht, den Hochnebel. Sein Oberrand liegt genau an der Inversion, darüber scheint oft die Sonne.','Nebel':' Nebel entsteht, wenn die Luft am Boden bis zum Taupunkt abkühlt, typisch in klaren, windschwachen Nächten mit hoher Feuchte. Die Sonne löst ihn meist erst am Vormittag auf.','Stratus':' Die graue Schicht (Stratus) bildet sich bei hoher Feuchte und stabiler Luft ohne kräftige Aufwinde, oft unter einer Inversion oder durch langsames Aufgleiten an einer Warmfront.','Altostratus':' Mittelhohe, milchig graue Schichtwolken kündigen oft eine Warmfront an, weil warme Luft langsam auf kältere Luft aufgleitet.','Cumulus':' Haufenwolken (Cumulus) wachsen in aufsteigender Warmluft, also durch Thermik oder Hebung. Ihre flache Unterseite liegt genau am Kondensationsniveau.','Cumulonimbus':' Die Luft ist feucht und labil: Das aufsteigende Luftpaket bleibt wärmer als die Umgebung (rote Fläche im Höhenprofil) und steigt weit hinauf. So entstehen Gewitterwolken mit Schauern, Blitz, Böen und eventuell Hagel.','Cirrus':' Dünne Eiswolken in großer Höhe zeigen Feuchte in der Höhe an und kündigen oft Fronten oder ein Tief an.','keine':' Die Luft ist trocken oder sinkt ab, deshalb bilden sich keine Wolken. Das ist typisch für Hochdruck.'};
+ c+=why[s.type]||'';
+ if(s.pt==='Regen')c+=s.conv>0.4?' Der Regen fällt als Schauer aus den Quellwolken.':' Der Regen fällt gleichmäßig aus der Schichtbewölkung, typisch für Dauerregen.';
+ else if(s.pt==='Schnee')c+=' Es schneit, weil es von der Wolke bis zum Boden kälter als etwa 0 °C ist.';
+ else if(s.pt==='Schneeregen')c+=' Knapp über null schmelzen die Flocken auf dem Weg nach unten nur teilweise.';
+ else if(s.pt==='Hagel')c+=' Im starken Aufwind werden Eiskörner immer wieder nach oben getragen und wachsen Schicht um Schicht.';
+ if(s.fr===1)c+=' Die Kaltfront schiebt sich keilförmig unter die Warmluft und hebt sie kräftig an.';
+ if(s.fr===2)c+=' An der Warmfront gleitet warme Luft langsam auf kältere auf, das gibt breite Wolkenschichten.';
+ if(s.loc===2&&s.p>0)c+=' Am Gebirge wird die Luft zusätzlich zum Aufsteigen gezwungen (Stau), das verstärkt den Niederschlag.';
+ if(s.rainbow)c+=' Bei tiefer Sonne und Regen im Gegenlicht entsteht ein Regenbogen.';
+ sec.push(['Wolken und Niederschlag',c]);
+ if(s.inv.on){const bo=s.inv.type==='Bodeninversion';sec.push(['Inversion: der Deckel in der Luft','Normalerweise wird es mit der Höhe kälter. In einer <b>Inversion</b> nimmt die Temperatur in einer Schicht mit der Höhe zu (hier ab etwa '+Math.round(s.inv.zi/10)*10+' m um rund '+Math.round(s.inv.dT)+' K). '+(bo?'Sie entsteht in klaren, windschwachen Nächten: Der Boden strahlt Wärme ab, die bodennahe Luft kühlt stark aus und bleibt als Kaltluftsee unten liegen. Folgen sind Frost, Tau, Nebel und Dunst im Tal.':'Sie entsteht bei Hochdruck: Die Luft sinkt großräumig ab und erwärmt sich dabei. Über der kühleren Bodenluft liegt dann eine warme Schicht. Folgen sind Hochnebel, Dunst und Smog unter dem Deckel, kaum Thermik und keine Gewitter. Darüber ist es oft klar und sonnig.')+' Aufsteigende Luft wird hier kälter als die Umgebung und stoppt (siehe Höhenprofil). Die Inversion löst sich auf, wenn die Sonne den Boden genug erwärmt, der Wind auffrischt oder ein Tief die Luftmasse austauscht.'])}
+
+ const rad=Math.round(1000*s.sunRaw*(1-0.75*s.cover));
+ let t2='Die Sonne steht '+(s.e>0?'bei '+Math.round(s.e)+'° Höhe':'unter dem Horizont')+', am Boden kommen etwa '+rad+' W/m² an. ';
+ t2+=s.e<=0?'Ohne Sonne kühlt der Boden durch Wärmeabstrahlung ab. Klare Nächte kühlen stärker, weil Wolken Wärme zurückhalten.':s.cover>0.7?'Dichte Wolken reflektieren viel Sonnenlicht, der Boden erwärmt sich kaum.':'Die Sonne heizt den Boden, der die Luft darüber erwärmt und Thermik antreibt.';
+ t2+=' '+(s.T<=0?'Der Boden liegt im Frostbereich.':'Die Nullgradgrenze liegt bei etwa '+(s.frz>=1000?(s.frz/1000).toFixed(1)+' km':Math.round(s.frz/10)*10+' m')+' Höhe.');
+ if(s.T>=22&&s.Td>=16)t2+=' Der hohe Taupunkt macht die Luft schwül.';
+ if(s.frost)t2+=' Wegen Frost, klarem Himmel und Feuchte bildet sich Reif.';
+ if(s.dew)t2+=' Klare Nacht und hohe Feuchte führen zu Tau.';
+ sec.push(['Temperatur und Strahlung',t2]);
+ $('why').innerHTML=sec.map(x=>'<div class="card"><h3>'+x[0]+'</h3><p>'+x[1]+'</p></div>').join('');
+
+ const elev=live&&live.elev!=null?live.elev:(s.loc===2?1500:0),elevFt=elev*3.281,PA=elevFt+(1013.25-P)*30,isa=15-1.98*PA/1000,DA=PA+120*(T-isa),kt=Math.round(s.w*1.944);
+ const baseFt=(s.type==='keine'||s.type==='Cirrus')?99999:s.base*3.281;
+ let cls=0,rate='eher günstig';
+ if(s.fog||s.thunder||s.pt==='Hagel'||s.p>0.6||s.bft>=7||(baseFt<1000&&s.cover>0.5)){cls=2;rate='ungünstig'}
+ else if((baseFt<2500&&s.cover>0.5)||s.p>0.2||s.spread<2||s.bft>=5||s.conv>0.4){cls=1;rate='eingeschränkt'}
+ $('vfr').innerHTML='<span class="chip'+(cls===2?' w':'')+'">Sichtflug-Lage grob: '+rate+'</span>';
+ const f=[];
+ f.push(['QNH und Dichtehöhe','QNH etwa <b>'+Math.round(P)+' hPa</b>. Platzhöhe '+Math.round(elev)+' m ('+Math.round(elevFt)+' ft). Druckhöhe etwa '+Math.round(PA)+' ft, Dichtehöhe etwa <b>'+Math.round(DA)+' ft</b>. '+(DA-elevFt>1500?'Die Dichtehöhe liegt deutlich über der Platzhöhe: Die Luft ist dünn, Motorleistung und Steigrate sinken, Start- und Landestrecke werden länger.':DA-elevFt<-1000?'Die Luft ist dicht, die Flugleistung ist gut.':'Die Leistung liegt im Normalbereich.')]);
+ f.push(['Wolken und Sicht',(baseFt>=99999?'Keine tiefen Wolken, die Wolkenuntergrenze ist kein Thema.':'Wolkenuntergrenze etwa <b>'+Math.round(baseFt/100)*100+' ft</b> über Grund (aus dem Spread geschätzt, echte Werte stehen im METAR). ')+(s.fog?' Nebel: Sicht unter 1 km, kein Sichtflug.':s.spread<3?' Der kleine Spread warnt vor Dunst, Nebel und sinkender Wolkenbasis, besonders abends und nachts.':'')+(s.p>0.25?' Niederschlag verschlechtert die Sicht.':'')]);
+ let wi='Bodenwind etwa <b>'+kt+' kt</b>'+(live&&live.wd!=null?' aus '+Math.round(live.wd)+'°':'')+'. ';
+ wi+=s.bft>=6?'Das ist viel Wind: Seitenwind und Turbulenz in Bodennähe sind kritisch. ':'';
+ wi+=(s.conv>0.2&&s.sunRaw>0.2)?'Sonne und labile Luft sorgen für Thermik, bodennah ist es böig und unruhig. ':'';
+ wi+=s.P<=1005?'Tiefdruck bedeutet oft wechselhaften, böigen Wind. ':s.P>=1022?'Hochdruck bringt meist schwachen Wind. ':'';
+ wi+=s.fr===1?'Hinter einer Kaltfront drohen Böen und Windscherung.':'';
+ f.push(['Wind und Turbulenz',wi]);
+ let g='';
+ if(s.thunder||s.type==='Cumulonimbus')g+='Gewitterwolken (Cb) meidet man weiträumig: Hagel, starke Auf- und Abwinde, Blitzschlag, Vereisung. ';
+ if(s.T<=0&&(s.fog||s.RH>90))g+='Bei Nebel unter 0 °C setzt sich Reif oder Eis an Flächen ab, vor dem Start kontrollieren. ';
+ if(s.T>0&&s.type!=='keine'&&s.frz<5000)g+='Die Nullgradgrenze liegt bei etwa '+Math.round(s.frz/10)*10+' m. Darüber besteht in Wolken und Niederschlag Vereisungsgefahr, besonders zwischen etwa 0 und minus 15 °C. ';
+ else if(s.T<=0&&(s.type!=='keine'||s.p>0))g+='Wolken oder Niederschlag bei Temperaturen unter 0 °C bedeuten Vereisungsgefahr. ';
+ if(s.pt==='Schnee'||s.pt==='Schneeregen')g+='Schnee und Schneeregen verschlechtern Sicht und Bremswirkung am Boden. ';
+ if(s.heat)g+='Große Hitze: hohe Dichtehöhe, mehr Thermik am Nachmittag. ';
+ if(!g)g='Keine besonderen Gefahrenpunkte aus diesen Werten. Das ersetzt keine Wetterberatung.';
+ if(s.inv.on)f.push(['Inversion',(s.type==='Hochnebel'?'Der Hochnebel hat seinen Oberrand bei etwa '+Math.round(s.inv.zi/10)*10+' m: Darüber ist es meist klar, darunter oft Sicht unter Sichtflugminima. ':'Unter dem Deckel ist die Sicht oft durch Dunst eingeschränkt, darüber sehr gut. ')+'An der Grenzschicht ändern sich Wind und Temperatur sprunghaft, das bedeutet Windscherung und Turbulenz beim Durchsteigen. Ein Flug über dem Nebel hilft nur, wenn am Ziel eine Landung unter dem Nebel möglich ist.']);
+ if(live&&live.fh&&live.fh.type&&!s.fr)f.push(['Front',live.fh.type==='Kaltfront'?'Möglicher Kaltfrontdurchgang: Böen, Windscherung und Schauer, auch Cb möglich. Nach dem Durchgang dreht der Wind rechts und die Sicht wird meist besser. Vor dem Flug die Lage in der Wetterberatung prüfen.':'Mögliche Warmfront im Anflug: Wolkenbasis und Sicht sinken, Dauerregen und Vereisung in Wolken sind möglich. Einen Flug nach Sichtflugregeln dann vorher am Boden gut planen.']);
+ f.push(['Gefahren',g]);
+ $('fly').innerHTML=f.map(x=>'<div class="card"><h3>'+x[0]+'</h3><p>'+x[1]+'</p></div>').join('');
+}
+
+const LAND_B64="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";
+let landRows=null;
+function landInit(){
+ const bin=atob(LAND_B64),b=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)b[i]=bin.charCodeAt(i);
+ let p=0;const rd=()=>{let n=0,sft=0,c;do{c=b[p++];n|=(c&127)<<sft;sft+=7}while(c&128);return n};
+ landRows=[];for(let r=0;r<1800;r++){const n=rd(),a=new Uint16Array(n);let prev=0;for(let i=0;i<n;i++){prev+=rd();a[i]=prev}landRows.push(a)}
+}
+function isLand(lat,lon){
+ if(!landRows)landInit();
+ const r=clamp(Math.floor((90-lat)/0.1),0,1799),c=Math.floor((((lon+180)%360+360)%360)/0.1),a=landRows[r];
+ let lo=0,hi=a.length;while(lo<hi){const m=(lo+hi)>>1;if(a[m]<=c)lo=m+1;else hi=m}
+ return lo%2===1;
+}
+function seaDistance(lat,lon){
+ const cl=Math.max(0.2,Math.cos(lat*Math.PI/180));
+ for(const r of [0,6,12,18,25]){
+  const n=r?16:1;
+  for(let k=0;k<n;k++){const a=k/n*2*Math.PI,la=clamp(lat+r*Math.cos(a)/111.2,-89.9,89.9),lo=lon+r*Math.sin(a)/(111.2*cl);if(!isLand(la,lo))return r}
+ }
+ return null;
+}
+function seaLayer(m){
+ if(m.seaCv&&m.seaKey===msc)return m.seaCv;
+ const S=2,cols=Math.ceil(MW/S),rows=Math.ceil(MH/S),land=new Uint8Array(cols*rows);
+ for(let r=0;r<rows;r++){const lat=m.lat+(0.5-(r+0.5)*S/MH)*(m.ny-1)*m.dlat;
+  for(let c=0;c<cols;c++){const lon=m.lon+((c+0.5)*S/MW-0.5)*(m.nx-1)*m.dlon;land[r*cols+c]=isLand(lat,lon)?1:0}}
+ const mk=document.createElement('canvas');mk.width=mcv.width;mk.height=mcv.height;const mx=mk.getContext('2d');mx.scale(msc,msc);mx.fillStyle='#000';
+ for(let r=0;r<rows;r++){let c=0;while(c<cols){if(land[r*cols+c]){c++;continue}let e=c;while(e<cols&&!land[r*cols+e])e++;mx.fillRect(c*S,r*S,(e-c)*S,S);c=e}}
+ const hc=document.createElement('canvas');hc.width=mcv.width;hc.height=mcv.height;const hx=hc.getContext('2d');hx.scale(msc,msc);
+ hx.fillStyle='rgba(60,130,200,0.10)';hx.fillRect(0,0,MW,MH);
+ hx.strokeStyle='rgba(24,95,165,0.5)';hx.lineWidth=1;
+ for(let k=-MH;k<MW;k+=7){hx.beginPath();hx.moveTo(k,MH);hx.lineTo(k+MH,0);hx.stroke()}
+ hx.setTransform(1,0,0,1,0,0);hx.globalCompositeOperation='destination-in';hx.drawImage(mk,0,0);
+ hx.globalCompositeOperation='source-over';hx.setTransform(msc,0,0,msc,0,0);
+ hx.strokeStyle='rgba(20,50,80,0.85)';hx.lineWidth=1.3;hx.beginPath();
+ for(let r=0;r<rows-1;r++)for(let c=0;c<cols-1;c++){
+  const v=land[r*cols+c];
+  if(v!==land[r*cols+c+1]){hx.moveTo((c+1)*S,r*S);hx.lineTo((c+1)*S,(r+1)*S)}
+  if(v!==land[(r+1)*cols+c]){hx.moveTo(c*S,(r+1)*S);hx.lineTo((c+1)*S,(r+1)*S)}
+ }
+ hx.stroke();
+ m.seaCv=hc;m.seaKey=msc;return hc;
+}
+function puff(x,y,w,h,col){
+ ctx.fillStyle=rgb(col);
+ for(let k=0;k<6;k++){const f=k/5,cx=x+(f-0.5)*w,r=h*(0.38+0.5*Math.sin(Math.PI*f)*(0.7+0.3*Math.sin(k*2.1)));
+  ctx.beginPath();ctx.arc(cx,y-r*0.55,r,0,7);ctx.fill();}
+ ctx.fillRect(x-w*0.5,y-h*0.3,w,h*0.3);
+ ctx.fillStyle=rgb(shade(col,0.82),0.6);ctx.fillRect(x-w*0.5,y-h*0.12,w,h*0.12);
+}
+function drawSky(){
+ const d=s.d;
+ let top=mix([8,12,30],[62,132,216],d),hor=mix([22,30,58],[172,212,246],d);
+ const tw=clamp(1-Math.abs(s.e-1)/9,0,1)*0.75*(1-s.skyCov*0.6);
+ hor=mix(hor,[255,150,90],tw);
+ const gray=mix([26,30,40],[158,166,176],d),k=clamp(s.skyCov*0.9,0,0.9);
+ const gd=shade(gray,1-0.4*s.dark);
+ top=mix(top,gd,k);hor=mix(hor,gd,k*0.9);
+ const g=ctx.createLinearGradient(0,0,0,G);g.addColorStop(0,rgb(top));g.addColorStop(1,rgb(hor));
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+ if(s.d<0.9&&s.skyCov<0.9){
+  const r=rng(5);ctx.fillStyle='#fff';
+  const a=(1-s.d)*(1-s.skyCov)*(s.RH>90?0.4:1);
+  for(let i=0;i<90;i++){const x=r()*W,y=r()*(G-60),z=r()*1.4+0.3;ctx.globalAlpha=a*(0.4+0.6*Math.sin(tick*0.002+i)**2);ctx.fillRect(x,y,z,z)}
+  ctx.globalAlpha=1;
+ }
+}
+function sunPos(hr,e){return[W*(0.5+0.44*Math.sin(hr)),G-6-clamp(e,-8,70)/70*(G-50)]}
+function drawSunMoon(){
+ const[sx,sy]=sunPos(s.hr,s.e);
+ if(s.e>-4){
+  const vis=(1-0.85*s.skyCov)*(0.3+0.7*s.S);
+  const low=clamp(1-s.e/25,0,1),col=mix([255,246,200],[255,140,60],low);
+  const g=ctx.createRadialGradient(sx,sy,6,sx,sy,90);
+  g.addColorStop(0,rgb(col,0.55*vis));g.addColorStop(1,rgb(col,0));
+  ctx.fillStyle=g;ctx.fillRect(sx-100,sy-100,200,200);
+  ctx.fillStyle=rgb(col,clamp(vis*1.2,0.15,1));ctx.beginPath();ctx.arc(sx,sy,15,0,7);ctx.fill();
+ }
+ if(s.e<3){
+  const[mx,my]=sunPos(s.hr+Math.PI,-s.e);
+  const a=clamp((3-s.e)/8,0,1)*(1-0.85*s.skyCov);
+  ctx.fillStyle='rgba(235,238,245,'+a+')';ctx.beginPath();ctx.arc(mx,my,11,0,7);ctx.fill();
+  ctx.fillStyle='rgba(20,26,50,'+(a*0.55)+')';ctx.beginPath();ctx.arc(mx+5,my-2,10,0,7);ctx.fill();
+ }
+}
+function yH(h){return G-8-h/4500*(G-70)}
+function drawMountains(){
+ if(s.loc!==2)return;
+ const k=(0.3+0.7*s.d)*(1-0.2*s.cover),zy=yH(s.T>0?s.frz:0);
+ const peaks=[[-20,G,110,yH(1700)],[110,G,260,yH(2600)],[260,G,420,yH(3300)],[420,G,560,yH(2300)],[540,G,720,yH(2900)]];
+ const rock=shade([112,118,130],k);
+ ctx.fillStyle=rgb(rock);
+ peaks.forEach(p=>{ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo((p[0]+p[2])/2,p[3]);ctx.lineTo(p[2],p[1]);ctx.fill()});
+ ctx.save();ctx.beginPath();ctx.rect(0,0,W,zy);ctx.clip();ctx.fillStyle=rgb(shade([240,246,252],k));
+ peaks.forEach(p=>{ctx.beginPath();ctx.moveTo(p[0],p[1]);ctx.lineTo((p[0]+p[2])/2,p[3]);ctx.lineTo(p[2],p[1]);ctx.fill()});
+ ctx.restore();
+}
+function cloudCol(){
+ const base=mix([252,252,255],[112,118,128],s.dark);
+ return shade(base,0.22+0.78*Math.max(s.d,0.12));
+}
+function drawClouds(){
+ if(s.type==='keine')return;
+ const col=cloudCol(),yb=s.ybase,w=s.w,t=s.type;
+ if(t==='Hochnebel'){
+  const top=Math.min(yb-14,yH(s.inv.zi));
+  ctx.fillStyle=rgb(shade(col,0.94),0.95);ctx.beginPath();ctx.moveTo(0,yb);
+  for(let x=0;x<=W;x+=8)ctx.lineTo(x,top+Math.sin(x*0.03+tick*0.01)*3+Math.sin(x*0.011+1)*4);
+  ctx.lineTo(W,yb);for(let x=W;x>=0;x-=8)ctx.lineTo(x,yb+Math.sin(x*0.05+tick*0.02)*2);ctx.closePath();ctx.fill();
+  return;
+ }
+ if(t==='Stratus'||t==='Altostratus'||t==='Nebel'){
+  ctx.fillStyle=rgb(shade(col,0.93),clamp((s.cover-0.35)*1.4,0,0.92));
+  ctx.fillRect(0,0,W,t==='Nebel'?G:Math.min(yb+6,G));
+ }
+ const span=W*1.4+300;
+ clouds.forEach((c,i)=>{
+  const off=((c.x+tick*w*0.12*s.dirx*(0.6+c.u*0.8))%span+span)%span-250;
+  if(t==='Cirrus'){
+   ctx.strokeStyle=rgb(col,0.55*Math.min(1,s.cover*3));ctx.lineWidth=2;ctx.lineCap='round';
+   const y=34+c.v*90;ctx.beginPath();ctx.moveTo(off,y);ctx.bezierCurveTo(off+40,y-10,off+90*c.sc,y-4,off+150*c.sc,y+10);ctx.stroke();
+   ctx.beginPath();ctx.moveTo(off+20,y+9);ctx.bezierCurveTo(off+60,y+2,off+100,y+6,off+130*c.sc,y+18);ctx.stroke();
+  }else if(t==='Cumulus'){
+   puff(off,yb+(c.v-0.5)*10,110*c.sc,52*c.sc,col);
+  }else if(t==='Cumulonimbus'){
+   if(i%2===0||s.cover>0.85){
+    const bw=120*c.sc,top=36+c.v*40,hgt=yb-top;
+    ctx.fillStyle=rgb(shade(col,0.82));
+    for(let k=0;k<7;k++){const f=k/6,yy=yb-hgt*f,ww=bw*(0.55+0.45*Math.sin(Math.PI*Math.min(1,f*1.1+0.1))),r=ww*0.5;
+     ctx.beginPath();ctx.arc(off+Math.sin(k*1.7)*6,yy,r,0,7);ctx.fill();}
+    ctx.fillStyle=rgb(col);ctx.beginPath();ctx.ellipse(off,top+10,bw*1.25,14,0,0,7);ctx.fill();
+    ctx.fillStyle=rgb(shade(col,0.6),0.8);ctx.fillRect(off-bw*0.55,yb-8,bw*1.1,10);
+   }else puff(off,yb,120*c.sc,56*c.sc,shade(col,0.85));
+  }else{
+   puff(off,yb+(c.v-0.5)*14-c.u*8,190*c.sc,34*c.sc,col);
+  }
+ });
+}
+function drawRainbow(){
+ if(!s.rainbow)return;
+ const[sx]=sunPos(s.hr,s.e),cx=clamp(W-sx,170,510);
+ const cols=['255,60,60','255,150,50','255,230,70','90,200,90','70,150,255','90,90,220','150,80,200'];
+ const a=clamp(0.5*s.sunRaw*3*(1-s.cover*0.5),0.12,0.5);
+ cols.forEach((c,i)=>{ctx.strokeStyle='rgba('+c+','+a+')';ctx.lineWidth=7;ctx.beginPath();ctx.arc(cx,G+30,205-i*6.5,Math.PI,2*Math.PI);ctx.stroke();});
+}
+function drawGround(){
+ const d=0.28+0.72*s.d,k=d*(1-0.25*s.cover);
+ const sc2=[[240,244,248],[120,180,90],[70,140,60],[150,125,55]][s.season];
+ let gcol=s.season===0?[120,140,100]:sc2;
+ if(s.snowG)gcol=[236,242,248];else if(s.frost)gcol=mix(gcol,[220,232,238],0.65);
+ if(s.T>=32&&!s.snowG)gcol=mix(gcol,[170,150,70],0.4);
+ const hill=s.snowG?[225,232,240]:mix(gcol,[110,130,150],0.4);
+ ctx.fillStyle=rgb(shade(hill,k));ctx.beginPath();ctx.moveTo(0,G);ctx.bezierCurveTo(120,G-48,260,G-8,380,G-28);ctx.bezierCurveTo(500,G-48,600,G-10,W,G-30);ctx.lineTo(W,G);ctx.fill();
+ if(s.loc===1){
+  ctx.fillStyle=rgb(shade(mix([40,95,140],[70,80,95],s.cover*0.7),Math.max(0.3,k)));ctx.fillRect(0,G-24,W,24);
+  ctx.strokeStyle='rgba(255,255,255,'+(0.18+0.4*clamp((s.bft-3)/4,0,1))+')';ctx.lineWidth=1.5;
+  for(let j=0;j<4;j++){ctx.beginPath();for(let x=0;x<=W;x+=10){const y=G-20+j*5+Math.sin(x*0.06+tick*0.04*(0.5+s.w*0.1)+j*2)*(1+s.w*0.12);x?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}
+ }
+ ctx.fillStyle=rgb(shade(s.loc===1?mix(gcol,[215,200,150],0.7):gcol,k));ctx.fillRect(0,G,W,H-G);
+ if(s.dew){ctx.fillStyle='rgba(255,255,255,'+(0.5*(0.3+s.d))+')';const r=rng(3);for(let i=0;i<70;i++)ctx.fillRect(r()*W,G+4+r()*(H-G-6),2,2)}
+ if(s.frost&&!s.snowG){ctx.fillStyle='rgba(255,255,255,0.7)';const r=rng(4);for(let i=0;i<110;i++)ctx.fillRect(r()*W,G+2+r()*(H-G-4),2,1.5)}
+ if(s.heat){ctx.strokeStyle='rgba(255,255,255,0.16)';ctx.lineWidth=2;for(let j=0;j<4;j++){ctx.beginPath();for(let x=0;x<=W;x+=8){const y=G-6-j*7+Math.sin(x*0.05+tick*0.06+j)*2.5;x?ctx.lineTo(x,y):ctx.moveTo(x,y)}ctx.stroke()}}
+ return k;
+}
+function tree(x,i,k){
+ const sway=Math.sin(tick*0.03+i*2)*Math.min(s.w,14)*0.35;
+ const tr=shade([90,62,40],k);
+ ctx.fillStyle=rgb(tr);ctx.fillRect(x-4,G-44,8,48);
+ const leaf=[null,[130,190,90],[50,130,55],[205,125,40]][s.season];
+ if(!leaf){
+  ctx.strokeStyle=rgb(tr);ctx.lineWidth=2.5;
+  [[-20,-70],[0,-80],[20,-68],[-10,-58],[12,-56]].forEach(b=>{ctx.beginPath();ctx.moveTo(x,G-40);ctx.lineTo(x+b[0]+sway,G+b[1]+30);ctx.stroke()});
+  if(s.snowG){ctx.fillStyle='rgba(255,255,255,0.95)';ctx.fillRect(x-5,G-46,10,4)}
+ }else{
+  ctx.fillStyle=rgb(shade(s.snowG?[225,235,235]:leaf,k));
+  [[0,-62,26],[-16,-48,20],[16,-48,20]].forEach(c=>{ctx.beginPath();ctx.arc(x+c[0]+sway*(1+c[1]/-60),G+c[1],c[2],0,7);ctx.fill()});
+ }
+}
+function drawScene(){
+ const k=drawGround();
+ [70,205,565,625].forEach((x,i)=>tree(x,i,k));
+ const hk=0.35+0.65*s.d;
+ ctx.fillStyle=rgb(shade([200,185,160],hk*(1-0.2*s.cover)));ctx.fillRect(375,G-38,70,40);
+ ctx.fillStyle=rgb(shade([150,70,60],hk));ctx.beginPath();ctx.moveTo(368,G-38);ctx.lineTo(410,G-72);ctx.lineTo(452,G-38);ctx.fill();
+ if(s.snowG){ctx.fillStyle='rgba(255,255,255,0.95)';ctx.beginPath();ctx.moveTo(376,G-43);ctx.lineTo(410,G-69);ctx.lineTo(444,G-43);ctx.lineTo(444,G-48);ctx.lineTo(410,G-74);ctx.lineTo(376,G-48);ctx.fill()}
+ ctx.fillStyle=s.d<0.6?'rgba(255,210,110,0.95)':rgb(shade([130,170,200],hk));
+ ctx.fillRect(388,G-28,14,14);ctx.fillRect(418,G-28,14,14);
+}
+function spawn(){
+ if(s.pt==='keiner')return;
+ const rate=s.p*(s.pt==='Schnee'?5:s.pt==='Hagel'?4:s.pt==='Schneeregen'?6:12);
+ const y0=s.fog?0:clamp(s.ybase,0,G-20);
+ for(let i=0;i<rate&&parts.length<900;i++){
+  const kind=s.pt==='Schneeregen'?(Math.random()<0.5?'Schnee':'Regen'):s.pt;
+  parts.push({x:Math.random()*(W+120)-60,y:y0+Math.random()*6,k:kind,vy:kind==='Schnee'?1+Math.random()*1.2:kind==='Hagel'?11+Math.random()*3:9+Math.random()*4,ph:Math.random()*6});
+ }
+}
+function drawParts(){
+ const vx=s.w*0.35*s.dirx;
+ for(let i=parts.length-1;i>=0;i--){
+  const p=parts[i];
+  p.y+=p.vy;p.x+=p.k==='Schnee'?vx*0.5+Math.sin(tick*0.05+p.ph)*0.6:vx;
+  if(p.y>G+Math.random()*(H-G)*0.6){
+   if(p.k==='Regen'&&Math.random()<0.4){ctx.fillStyle='rgba(200,220,255,0.5)';ctx.beginPath();ctx.ellipse(p.x,p.y,3,1,0,0,7);ctx.fill()}
+   parts.splice(i,1);continue;
+  }
+  if(p.k==='Regen'){ctx.strokeStyle='rgba(170,200,240,'+(0.35+0.4*s.d)+')';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-vx*1.4,p.y-p.vy*1.4);ctx.stroke()}
+  else if(p.k==='Schnee'){ctx.fillStyle='rgba(255,255,255,0.9)';ctx.beginPath();ctx.arc(p.x,p.y,1.8,0,7);ctx.fill()}
+  else{ctx.fillStyle='rgba(240,248,255,0.95)';ctx.beginPath();ctx.arc(p.x,p.y,3.2,0,7);ctx.fill()}
+ }
+}
+function drawLightning(){
+ if(s.thunder&&flash<=0&&Math.random()<0.004+0.012*(s.conv-0.6)){
+  flash=1;let x=100+Math.random()*(W-200),y=s.ybase;bolt=[[x,y]];
+  while(y<G){x+=(Math.random()-0.5)*34;y+=14+Math.random()*16;bolt.push([x,Math.min(y,G)])}
+ }
+ if(flash>0){
+  ctx.fillStyle='rgba(255,255,255,'+(flash*0.35)+')';ctx.fillRect(0,0,W,H);
+  ctx.strokeStyle='rgba(255,255,235,'+flash+')';ctx.lineWidth=2.5;ctx.beginPath();
+  bolt.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1]));ctx.stroke();
+  flash-=0.07;
+ }
+}
+function drawFog(){
+ if(s.inv.on&&!s.fog&&s.type!=='Hochnebel'&&s.RH>=50){const yt=yH(s.inv.zi),g2=ctx.createLinearGradient(0,yt,0,G);const hc=mix([90,92,98],[200,198,190],s.d);g2.addColorStop(0,rgb(hc,0));g2.addColorStop(1,rgb(hc,0.07+0.2*clamp((s.RH-50)/50,0,1)));ctx.fillStyle=g2;ctx.fillRect(0,yt,W,G-yt)}
+ let a=0;
+ if(s.fog)a=0.8;else if(s.RH>85&&s.spread<2.5&&s.p===0)a=0.18;
+ if(!a)return;
+ const c=mix([60,64,74],[208,212,218],s.d),g=ctx.createLinearGradient(0,0,0,G);
+ g.addColorStop(0,rgb(c,a*0.55));g.addColorStop(1,rgb(c,a));
+ ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+}
+function pill(txt,x,y,al){
+ ctx.font='11px system-ui,sans-serif';const w=ctx.measureText(txt).width+10;
+ ctx.fillStyle='rgba(0,0,0,0.4)';ctx.fillRect(al==='r'?x-w:x,y-10,w,16);
+ ctx.fillStyle='#fff';ctx.textAlign=al==='r'?'right':'left';ctx.fillText(txt,al==='r'?x-5:x+5,y+2);
+}
+function drawHud(){
+ ctx.fillStyle='rgba(255,255,255,0.5)';ctx.font='11px system-ui,sans-serif';ctx.textAlign='right';
+ for(let h=0;h<=4000;h+=1000){const y=yH(h);ctx.fillRect(W-14,y,8,1);ctx.fillText(h/1000+' km',W-18,y+4)}
+ if(s.type!=='keine'&&s.type!=='Cirrus'&&s.base<4500){
+  ctx.setLineDash([5,4]);ctx.strokeStyle='rgba(255,255,255,0.5)';ctx.beginPath();ctx.moveTo(0,s.ybase);ctx.lineTo(W-60,s.ybase);ctx.stroke();ctx.setLineDash([]);
+  pill('Wolkenbasis (Kondensationsniveau)',8,s.ybase-10,'l');
+ }
+ if(s.inv.on){const y1=yH(s.inv.zi),y2=yH(s.inv.zi+s.inv.dz);ctx.fillStyle='rgba(255,170,60,0.16)';ctx.fillRect(0,Math.min(y1,y2),W-60,Math.abs(y1-y2)+2);ctx.setLineDash([2,4]);ctx.strokeStyle='rgba(255,190,90,0.9)';ctx.beginPath();ctx.moveTo(0,y1);ctx.lineTo(W-60,y1);ctx.stroke();ctx.setLineDash([]);pill('Inversion (Deckel) ca. '+Math.round(s.inv.zi/10)*10+' m',8,y1-(s.type==='Hochnebel'?-12:10),'l')}
+ pill((liveName?liveName+' · ':'')+(s.P>=1013?'Hoch ':'Tief ')+s.P+' hPa · '+s.T+' °C',8,16,'l');
+ if(s.w>2){
+  const L=clamp(s.w*3,8,70);ctx.strokeStyle='rgba(255,255,255,0.85)';ctx.lineWidth=2;ctx.beginPath();const sg=s.dirx,xe=W-90;ctx.moveTo(xe-sg*L,26);ctx.lineTo(xe,26);ctx.lineTo(xe-sg*7,21);ctx.moveTo(xe,26);ctx.lineTo(xe-sg*7,31);ctx.stroke();
+ }
+}
+function frame(){
+ tick++;ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,cv.width,cv.height);ctx.setTransform(sc,0,0,sc,0,0);
+ drawSky();drawSunMoon();drawRainbow();drawMountains();drawClouds();drawScene();drawFog();spawn();drawParts();drawLightning();drawHud();
+ requestAnimationFrame(frame);
+}
+function resize(){
+ const dpr=window.devicePixelRatio||1,cw=cv.clientWidth||W;
+ cv.width=Math.round(cw*dpr);cv.height=Math.round(cw*dpr*H/W);sc=cv.width/W;
+ const pw=pcv.clientWidth||400;pcv.width=Math.round(pw*dpr);pcv.height=Math.round(pw*dpr*0.75);
+ const mw=mcv.clientWidth||640;mcv.width=Math.round(mw*dpr);mcv.height=Math.round(mw*dpr*462/640);msc=mcv.width/640;
+ if(s){drawProfile();drawMap()}
+}
+function drawProfileSafe(){drawProfile()}
+const IDS=['P','S','RH','T','H','D','L','F'];
+IDS.forEach(k=>$(k).addEventListener('input',()=>{clearLive();update(true)}));
+$('L').addEventListener('change',()=>{clearLive();update(true)});$('F').addEventListener('change',()=>{clearLive();update(true)});$('V').addEventListener('change',()=>{update(true)});
+document.querySelectorAll('#presets button').forEach(b=>b.addEventListener('click',()=>{
+ const v=b.dataset.p.split(',');IDS.forEach((k,i)=>$(k).value=v[i]);parts=[];live=null;liveName='';mapData=null;$('V').value=0;phi=53*Math.PI/180;setStatus('Voreinstellung geladen (Beispielort bei 53° N).');forceMap=true;update(true);
+}));
+let timer=null,mode=null;
+function play(m){
+ const bd=$('playDay'),by=$('playYear');
+ clearInterval(timer);clearLive();bd.classList.remove('on');by.classList.remove('on');bd.textContent='Tag abspielen';by.textContent='Jahr abspielen';
+ if(mode===m){mode=null;update(true);return}
+ mode=m;(m==='day'?bd:by).classList.add('on');(m==='day'?bd:by).textContent='Stopp';
+ timer=setInterval(()=>{
+  if(m==='day'){let h=+$('H').value+0.1;if(h>=24)h=0;$('H').value=h}
+  else{let d=+$('D').value+2;if(d>365)d=1;$('D').value=d}
+  update();
+ },60);
+}
+$('playDay').addEventListener('click',()=>play('day'));
+$('playYear').addEventListener('click',()=>play('year'));
+function setStatus(t,err){const e=$('liveStatus');e.textContent=t;e.style.color=err?'var(--dng)':'var(--mut)'}
+function clearLive(){if(live){live=null;liveName='';setStatus('Regler verändert: Die Live-Werte werden nicht mehr erzwungen. Mit "Neu laden" wieder übernehmen.')}}
+async function jget(u){const r=await fetch(u);if(!r.ok)throw new Error('HTTP '+r.status);return r.json()}
+let places=[],cur=null;
+async function search(){
+ const q=$('q').value.trim();
+ if(!q)return setStatus('Bitte einen Ort eingeben, z. B. Kopenhagen oder Lüneburg.',1);
+ setStatus('Suche …');
+ try{
+  const j=await jget('https://geocoding-api.open-meteo.com/v1/search?count=6&language=de&format=json&name='+encodeURIComponent(q));
+  places=j.results||[];
+  if(!places.length)return setStatus('Kein Ort gefunden. Andere Schreibweise probieren.',1);
+  const sel=$('pl');sel.innerHTML='';
+  places.forEach((p,i)=>{const o=document.createElement('option');o.value=i;o.textContent=[p.name,p.admin1,p.country].filter(Boolean).join(', ');sel.appendChild(o)});
+  sel.style.display=places.length>1?'':'none';
+  loadPlace(places[0]);
+ }catch(e){setStatus('Die Ortssuche ist fehlgeschlagen ('+(e&&e.message?e.message:'unbekannter Fehler')+'). Wenn die Datei in einer Vorschau oder einem eingebetteten Fenster geöffnet ist, blockiert dieses oft Internetzugriffe. Dann die Datei direkt im Browser öffnen (Doppelklick) oder auf einer Website hosten.',1)}
+}
+async function loadPlace(p){
+ cur=p;setStatus('Lade aktuelles Wetter …');
+ const om='https://api.open-meteo.com/v1/forecast?latitude='+p.latitude+'&longitude='+p.longitude+'&timezone=auto&wind_speed_unit=kmh&current=temperature_2m,relative_humidity_2m,pressure_msl,cloud_cover,precipitation,weather_code,wind_speed_10m,wind_direction_10m,shortwave_radiation&hourly=temperature_2m,pressure_msl,wind_speed_10m,wind_direction_10m,cloud_cover&past_hours=6&forecast_hours=1';
+ const tryBS=!p.country_code||p.country_code.toUpperCase()==='DE';
+ const r=await Promise.allSettled([jget(om),tryBS?jget('https://api.brightsky.dev/current_weather?lat='+p.latitude+'&lon='+p.longitude):Promise.reject(0),fetchMap(p)]);
+ if(r[0].status!=='fulfilled')return setStatus('Die Wetterdaten konnten nicht geladen werden ('+(r[0].reason&&r[0].reason.message?r[0].reason.message:'unbekannter Fehler')+'). Bei Anzeige in einer Vorschau die Datei direkt im Browser öffnen.',1);
+ try{applyLive(p,r[0].value,r[1].status==='fulfilled'?r[1].value:null,r[2].status==='fulfilled'?r[2].value:null)}catch(e){setStatus('Die Wetterdaten waren unvollständig.',1)}
+}
+
+function frontHint(om,pt,code){
+ try{
+  const h=om.hourly,c=om.current;if(!h||!h.time||!c)return null;
+  let i=-1;for(let k=0;k<h.time.length;k++){if(h.time[k]<=c.time)i=k}
+  if(i<3)return null;
+  const j3=i-3,j6=i>=6?i-6:null;
+  const dd=(a,b)=>((a-b+540)%360)-180,num=x=>x!=null&&isFinite(x);
+  const P=h.pressure_msl,T=h.temperature_2m,W=h.wind_direction_10m,V=h.wind_speed_10m,C=h.cloud_cover;
+  const dp3=num(P[i])&&num(P[j3])?P[i]-P[j3]:null;
+  const dpPrev=j6!=null&&num(P[j3])&&num(P[j6])?P[j3]-P[j6]:null;
+  const dT3=num(T[i])&&num(T[j3])?T[i]-T[j3]:null;
+  const dC3=num(C&&C[i])&&num(C&&C[j3])?C[i]-C[j3]:null;
+  let veer=null;
+  if(num(W[i])&&num(V[i])&&V[i]>=8){
+   const a=num(W[j3])&&V[j3]>=5?dd(W[i],W[j3]):null,b=j6!=null&&num(W[j6])&&V[j6]>=5?dd(W[i],W[j6]):null;
+   if(a!=null||b!=null)veer=(b!=null&&(a==null||Math.abs(b)>Math.abs(a)))?b:a;
+  }
+  const showers=[80,81,82,85,86,95,96,99].includes(code),rain=pt==='Regen'||pt==='Schneeregen';
+  const cr=[],wr=[];let cs=0,ws=0;
+  if(veer!=null&&veer>=45){cs+=2;cr.push('Der Wind hat in den letzten Stunden um etwa '+Math.round(veer)+'° nach rechts gedreht (im Uhrzeigersinn). Diese Rechtsdrehung ist typisch für den Durchgang einer Kaltfront.')}
+  else if(veer!=null&&veer>=25){cs+=1;cr.push('Der Wind dreht nach rechts (etwa '+Math.round(veer)+'°), das passt zu einer Kaltfront.')}
+  if(dT3!=null&&dT3<=-2){cs+=2;cr.push('Die Temperatur ist in 3 Stunden um '+Math.abs(dT3).toFixed(1)+' K gefallen: kühlere Luft ist eingeströmt.')}
+  else if(dT3!=null&&dT3<=-1){cs+=1;cr.push('Die Temperatur ist in 3 Stunden um '+Math.abs(dT3).toFixed(1)+' K gefallen.')}
+  if(dpPrev!=null&&dp3!=null&&dpPrev<=-1&&dp3>=0.5){cs+=2;cr.push('Der Druck ist erst gefallen und steigt jetzt wieder. Dieser Drucktrog liegt oft direkt an der Front.')}
+  else if(dp3!=null&&dp3>=2){cs+=1;cr.push('Der Druck steigt kräftig ('+dp3.toFixed(1)+' hPa in 3 Stunden), wie hinter einer Kaltfront.')}
+  if(showers){cs+=1;cr.push('Schauer oder Gewitter sind typisch für Kaltfronten.')}
+  if(dp3!=null&&dp3<=-1.5){ws+=2;wr.push('Der Druck fällt deutlich ('+Math.abs(dp3).toFixed(1)+' hPa in 3 Stunden), wie vor einer Warmfront.')}
+  else if(dp3!=null&&dp3<=-0.8){ws+=1;wr.push('Der Druck fällt ('+Math.abs(dp3).toFixed(1)+' hPa in 3 Stunden).')}
+  if(veer!=null&&veer<=-25){ws+=1;wr.push('Der Wind dreht nach links (etwa '+Math.abs(Math.round(veer))+'°). Diese Linksdrehung tritt oft vor einer Warmfront auf.')}
+  if(dC3!=null&&dC3>=25){ws+=1;wr.push('Die Bewölkung hat in 3 Stunden um '+Math.round(dC3)+' Prozentpunkte zugenommen.')}
+  if(dT3!=null&&dT3>=2){ws+=1;wr.push('Die Temperatur steigt ('+dT3.toFixed(1)+' K in 3 Stunden): Warmluft kommt an.')}
+  if(rain&&!showers&&dp3!=null&&dp3<0){ws+=1;wr.push('Gleichmäßiger Regen bei fallendem Druck ist typisch für Aufgleitniederschlag.')}
+  let type=null,sc=0,reasons=[];
+  if(cs>=3&&cs>=ws){type='Kaltfront';sc=cs;reasons=cr}
+  else if(ws>=3){type='Warmfront';sc=ws;reasons=wr}
+  return{type,sc,reasons,dp3,dT3,veer,level:sc>=5?'deutliche Anzeichen':'mögliche Anzeichen'};
+ }catch(e){return null}
+}
+function applyLive(p,om,bs,mapRes){
+ const c=om.current,w=bs&&bs.weather,src=bs&&bs.sources&&bs.sources[0];
+ const pick=(a,b)=>a!=null?a:b;
+ const T=pick(w&&w.temperature,c.temperature_2m),RH=pick(w&&w.relative_humidity,c.relative_humidity_2m),P=pick(w&&w.pressure_msl,c.pressure_msl);
+ const cover=clamp(pick(w&&w.cloud_cover,c.cloud_cover)/100,0,1);
+ const wk=pick(w&&w.wind_speed_10,c.wind_speed_10m),wd=pick(w&&w.wind_direction_10,c.wind_direction_10m);
+ const mm=pick(w&&w.precipitation_60,c.precipitation)||0,cond=w&&w.condition,code=c.weather_code;
+ const[dp,tp]=c.time.split('T'),[Y,M,Dd]=dp.split('-').map(Number),[hh,mi]=tp.split(':').map(Number);
+ const doy=Math.round((Date.UTC(Y,M-1,Dd)-Date.UTC(Y,0,0))/864e5),hour=hh+mi/60;
+ const base={51:.12,53:.2,55:.28,56:.2,57:.3,61:.3,63:.55,65:.8,66:.3,67:.6,71:.25,73:.5,75:.8,77:.2,80:.35,81:.6,82:.9,85:.35,86:.7,95:.6,96:.7,99:.9};
+ const mmp=Math.sqrt(clamp(mm,0,40)/40);
+ let pt='keiner',pp=0,thunder=false,fog=false;
+ if(cond){
+  if(cond==='fog')fog=true;
+  else if(cond==='snow')pt='Schnee';else if(cond==='sleet')pt='Schneeregen';else if(cond==='hail')pt='Hagel';
+  else if(cond==='rain')pt='Regen';else if(cond==='thunderstorm'){pt='Regen';thunder=true}
+  if(pt!=='keiner')pp=Math.max(mmp,pt==='Schnee'?0.25:0.2);
+ }else{
+  if(code===45||code===48)fog=true;
+  if(base[code]!==undefined){pp=Math.max(base[code],mmp);pt=[71,73,75,77,85,86].includes(code)?'Schnee':(code===96||code===99)?'Hagel':'Regen';thunder=code>=95}
+ }
+ if(pt==='keiner'&&mm>=0.2){pt=T<=-0.5?'Schnee':T<=2?'Schneeregen':'Regen';pp=Math.max(0.12,mmp)}
+ phi=p.latitude*Math.PI/180;
+ const e0=mdl(1013,100,50,10,hour,doy,0,0).e,sinE=Math.sin(e0*Math.PI/180);
+ const rad=c.shortwave_radiation;
+ const S=sinE>0.05&&rad!=null?clamp(rad/(1000*sinE*(1-0.75*cover)),0.05,1)*100:70;
+ const elev=pick(p.elevation,om.elevation);
+ const set=(k,v)=>{$(k).value=v};
+ set('P',Math.round(P));set('S',Math.round(S));set('RH',Math.round(RH));set('T',Math.round(T*2)/2);set('H',hour);set('D',doy);
+ const sd=seaDistance(p.latitude,p.longitude),lt=elev>=800?2:sd!==null?1:0;
+ const typeTxt=lt===2?'Gebirge ('+Math.round(elev)+' m)':lt===1?'Küste (Meer '+(sd?'etwa '+sd+' km entfernt':'direkt am Ort')+')':'Flachland';
+ set('L',lt);set('F',0);
+ live={cover,p:pp,pt,thunder,fog,fh:frontHint(om,pt,code),w:clamp(wk/3.6,0.3,35),wd,dirx:wd!=null?(Math.sin(wd*Math.PI/180)>0.15?-1:Math.sin(wd*Math.PI/180)<-0.15?1:(Math.cos(wd*Math.PI/180)>0?1:-1)):1};
+ live.elev=elev||0;liveName=p.name||'Standort';parts=[];mapData=mapRes;forceMap=true;
+ update(true);
+ const lat=Math.abs(p.latitude).toFixed(1)+'° '+(p.latitude>=0?'N':'S');
+ const tm=tp+' Uhr Ortszeit';
+ setStatus((src?'Messstation '+src.station_name+' ('+Math.round((src.distance||0)/1000)+' km entfernt, DWD). ':'Modelldaten von Open-Meteo für den Gitterpunkt bei '+liveName+', keine einzelne Messstation. ')+'Stand '+tm+', '+lat+(elev!=null?', '+Math.round(elev)+' m Höhe':'')+'. Standorttyp: '+typeTxt+'.'+(mapRes?'':' Die Druckkarte konnte nicht geladen werden.'));
+}
+['lyIso','lyCol','lyLand','lyWnd'].forEach(k=>$(k).addEventListener('change',drawMap));
+$('goSearch').addEventListener('click',search);
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+$('pl').addEventListener('change',e=>loadPlace(places[+e.target.value]));
+$('goReload').addEventListener('click',()=>{if(cur)loadPlace(cur);else search()});
+$('goGeo').addEventListener('click',()=>{
+ if(!navigator.geolocation)return setStatus('Dieser Browser kann den Standort nicht bestimmen.',1);
+ setStatus('Standort wird bestimmt …');
+ navigator.geolocation.getCurrentPosition(pos=>{$('pl').style.display='none';loadPlace({name:'Mein Standort',latitude:pos.coords.latitude,longitude:pos.coords.longitude,country_code:null,elevation:pos.coords.altitude})},()=>setStatus('Standortfreigabe abgelehnt oder nicht möglich. Alternativ den Ort eintippen.',1),{timeout:10000});
+});
+let lastCW=0,raf=0;
+function onSize(){cancelAnimationFrame(raf);raf=requestAnimationFrame(()=>{const w=cv.clientWidth;if(w!==lastCW){lastCW=w;resize()}})}
+if(window.ResizeObserver)new ResizeObserver(onSize).observe(cv.parentElement);else window.addEventListener('resize',onSize);
+update();resize();frame();
+</script>
+</body>
+</html>
